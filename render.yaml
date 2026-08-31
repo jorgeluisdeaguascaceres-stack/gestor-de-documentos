@@ -1,0 +1,27 @@
+# Configuracion para Render (https://render.com)
+# Sube este archivo a la raiz de tu repositorio de GitHub.
+# Render lo detecta solo cuando creas el servicio con "Blueprint".
+
+services:
+  - type: web
+    name: gestor-de-documentos
+    runtime: node
+    plan: starter          # el disco persistente NO funciona en el plan gratis
+    buildCommand: ""       # la app no usa librerias externas: no hay nada que instalar
+    startCommand: node server.js
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: DATA_DIR
+        value: /var/data     # debe coincidir con mountPath del disco de abajo
+      - key: SESION_HORAS
+        value: "8"
+      - key: APP_USER
+        sync: false          # lo escribes tu en el panel de Render
+      - key: APP_PASSWORD
+        sync: false          # lo escribes tu en el panel de Render (clave fuerte)
+    disk:
+      name: datos
+      mountPath: /var/data   # aqui viven db.json, usuarios.json y los PDF
+      sizeGB: 5
