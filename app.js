@@ -158,8 +158,8 @@ async function zipBlobs(items){   // [{path, blob}]
  *   - Modo local: bloqueo disuasorio guardado en este navegador.
  * ------------------------------------------------------------------ */
 var SEG = (function(){
-  var modo = "local", usuario = "", rol = "", abierto = false;
-  var resolver = null, promesa = null, mostrandoAlta = false;
+  var modo = "local", usuario = "", rol = "";
+  var resolver = null, promesa = null, mostrandoAlta = false, instalar = false;
   var LS = "gd_seguridad_v1", SS = "gd_sesion_v1", HORAS = 8;
 
   /* ---------- utilidades de cifrado (solo modo local) ---------- */
@@ -227,8 +227,29 @@ var SEG = (function(){
   }
 
   /* ---------- pantalla ---------- */
+  /* Ajusta los textos de la pantalla de alta según dónde se va a crear la cuenta:
+     en el servidor de la nube (primer administrador) o solo en este navegador. */
+  function textosAlta(){
+    if(modo === "api"){
+      $("altaTitulo").textContent = "Crea el primer administrador";
+      $("altaSub").textContent = "Esta aplicaci\u00f3n todav\u00eda no tiene ninguna cuenta. La primera que crees ser\u00e1 la de administrador y podr\u00e1 dar acceso al resto del equipo.";
+      $("altaNota").textContent = "La cuenta se guarda en el servidor de la nube, con la contrase\u00f1a cifrada. En cuanto exista este administrador, esta pantalla desaparece y nadie m\u00e1s podr\u00e1 crearse una cuenta por su cuenta.";
+      $("btnAlta").textContent = "Crear administrador y entrar";
+      $("lineaVolverLogin").hidden = false;
+    } else {
+      $("altaTitulo").textContent = "Protege esta aplicaci\u00f3n";
+      $("altaSub").textContent = "Es la primera vez que se abre en este equipo. Crea un usuario y una contrase\u00f1a para bloquear el acceso.";
+      $("altaNota").textContent = "Sin servidor central, la contrase\u00f1a se guarda cifrada (resumen PBKDF2) en este navegador y el bloqueo es disuasorio: impide el uso casual, pero no cifra los PDF. Para seguridad real usa el servidor central.";
+      $("btnAlta").textContent = "Guardar y entrar";
+      $("lineaVolverLogin").hidden = true;
+    }
+  }
   function verGate(alta, aviso, tipo){
     mostrandoAlta = !!alta;
+    if(alta) textosAlta();
+    /* El atajo para crear el primer administrador solo aparece cuando el
+       servidor confirma que todavía no existe ninguna cuenta. */
+    $("lineaPrimer").hidden = !(modo === "api" && instalar);
     $("gAlta").hidden = !alta;
     $("gLogin").hidden = !!alta;
     $("gate").hidden = false;
@@ -243,17 +264,11 @@ var SEG = (function(){
   }
   function pintarBarra(){
     var w = $("who");
-    if(abierto){
-      w.hidden = false;
-      $("whoTxt").textContent = "sin protección";
-      $("btnClave").hidden = true;
-      $("btnSalir").hidden = true;
-      return;
-    }
     if(!usuario){ w.hidden = true; return; }
     w.hidden = false;
     $("btnClave").hidden = false;
     $("btnSalir").hidden = false;
+    $("btnUsuarios").hidden = !(modo === "api" && rol === "admin");
     $("whoTxt").textContent = usuario + (rol ? " · " + rol : "") +
                               (modo === "local" ? " · este equipo" : "");
   }
@@ -269,8 +284,13 @@ var SEG = (function(){
 
   async function entrarServidor(u, c){
     var r = await pedir("api/login", { usuario:u, clave:c });
-    if(r.status === 200 && r.datos && r.datos.abierto){ abierto = true; return { ok:true }; }
+    if(r.status === 409 && r.datos && r.datos.instalar){
+      instalar = true;
+      verGate(true, "Todav\u00eda no hay ninguna cuenta: crea aqu\u00ed el primer administrador.", "");
+      return { ok:false, error:"" };
+    }
     if(r.status === 200 && r.datos && r.datos.ok){
+      instalar = false;
       usuario = r.datos.usuario; rol = r.datos.rol || "";
       return { ok:true };
     }
@@ -294,7 +314,12 @@ var SEG = (function(){
   return {
     get modo(){ return modo; },
     get usuario(){ return usuario; },
-    get abierto(){ return abierto; },
+    get rol(){ return rol; },
+    get esAdmin(){ return modo === "api" && rol === "admin"; },
+    get hayQueInstalar(){ return instalar; },
+    pedir: pedir,
+    verLogin: function(aviso, tipo){ verGate(false, aviso || "", tipo || ""); },
+    verAlta: function(aviso, tipo){ verGate(true, aviso || "", tipo || ""); },
 
     /* Devuelve una promesa que se resuelve cuando hay acceso concedido. */
     iniciar: function(m){
@@ -303,8 +328,11 @@ var SEG = (function(){
       (async function(){
         if(modo === "api"){
           var r = await pedir("api/yo");
-          if(r.status === 200 && r.datos && r.datos.abierto){
-            abierto = true; pintarBarra(); cerrarGate(); resolver();
+          if(r.status === 200 && r.datos && r.datos.instalar){
+            /* Servidor recién publicado: nadie ha creado todavía una cuenta.
+               Se ofrece crear el primer administrador desde la propia pantalla. */
+            instalar = true;
+            verGate(true, "");
             return;
           }
           if(r.status === 200 && r.datos && r.datos.usuario){
@@ -312,7 +340,7 @@ var SEG = (function(){
             pintarBarra(); cerrarGate(); resolver();
             return;
           }
-          $("notaLogin").textContent = "Servidor central protegido. Si olvidaste tu contraseña, pídele al administrador que la restablezca.";
+          $("notaLogin").textContent = "Tus documentos están guardados en la nube. Si olvidaste tu contraseña, pídele al administrador que la restablezca.";
           verGate(false, "");
           return;
         }
@@ -333,7 +361,6 @@ var SEG = (function(){
 
     /* Sesión inválida detectada en cualquier petición al servidor. */
     caducada: function(){
-      if(abierto) return;
       usuario = ""; rol = "";
       cerrarSesionLocal();
       pintarBarra();
@@ -345,6 +372,29 @@ var SEG = (function(){
       var r = modo === "api" ? await entrarServidor(u, c) : await entrarLocal(u, c);
       if(r.ok){ pintarBarra(); cerrarGate(); if(resolver) resolver(); }
       return r;
+    },
+
+    /* Alta de la primera cuenta: en la nube crea el administrador en el
+       servidor; sin servidor solo bloquea este navegador. */
+    crearPrimero: async function(u, c){
+      if(modo !== "api") return SEG.crearLocal(u, c);
+      u = String(u||"").trim().toLowerCase();
+      if(!/^[a-z0-9._-]{3,32}$/.test(u)) return { ok:false, error:"El usuario debe tener entre 3 y 32 caracteres: letras, números, punto, guion o guion bajo." };
+      var f = SEG.fuerza(c);
+      if(f.nivel === "b") return { ok:false, error: f.aviso };
+      var r = await pedir("api/primer-admin", { usuario:u, clave:c });
+      if(r.status === 200 && r.datos && r.datos.ok){
+        instalar = false;
+        usuario = r.datos.usuario; rol = r.datos.rol || "admin";
+        pintarBarra(); cerrarGate(); if(resolver) resolver();
+        return { ok:true };
+      }
+      if(r.status === 403){
+        instalar = false;
+        verGate(false, (r.datos && r.datos.error) || "Ya hay usuarios creados.", "err");
+        return { ok:false, error:"" };
+      }
+      return { ok:false, error:(r.datos && r.datos.error) || "No se pudo crear el administrador (error " + r.status + ")." };
     },
 
     crearLocal: async function(u, c){
@@ -823,7 +873,9 @@ function pintarActivo(){
   var l2 = document.createElement("div");
   l2.className = "mono"; l2.style.fontSize = "12px"; l2.style.color = "var(--dim)";
   l2.style.marginTop = "4px";
-  l2.textContent = "Destino: " + destino(activo);
+  l2.textContent = MODE === "api"
+    ? "Guardado en la nube · carpeta “" + activo.carpeta + "”"
+    : "Destino: " + destino(activo);
   box.appendChild(l1); box.appendChild(l2);
   DOCS.forEach(function(d){
     var s = document.createElement("span");
@@ -856,7 +908,8 @@ function refrescarCajas(){
 
 /* Crear carpeta / lote */
 $("btnCrear").addEventListener("click", async function(){
-  var ruta = limpiaRuta($("ruta").value);
+  /* En la nube nunca se pide una carpeta del equipo. */
+  var ruta = MODE === "api" ? "" : limpiaRuta($("ruta").value);
   var carpeta = limpia($("carpeta").value);
   var nit = limpia($("nit").value);
   $("carpeta").classList.toggle("bad", !carpeta);
@@ -871,9 +924,11 @@ $("btnCrear").addEventListener("click", async function(){
     refrescarCajas();
     say($("msgA"), r.existia
       ? "Esa carpeta ya existía para el NIT indicado: se reabrió para seguir cargando documentos."
-      : (raiz
-          ? "Carpeta “" + carpeta + "” creada dentro de " + (ruta || raiz.name) + " y registrada en el histórico."
-          : "Carpeta “" + carpeta + "” registrada con destino " + destino(activo) + ". Usa “Elegir carpeta de destino” si quieres que los PDF se guarden solos ahí."), "ok");
+      : (MODE === "api"
+          ? "Carpeta “" + carpeta + "” creada en la nube. Ya puedes cargar los seis documentos: quedan guardados en el servidor."
+          : (raiz
+            ? "Carpeta “" + carpeta + "” creada dentro de " + (ruta || raiz.name) + " y registrada en el histórico."
+            : "Carpeta “" + carpeta + "” registrada con destino " + destino(activo) + ". Usa “Elegir carpeta de destino” si quieres que los PDF se guarden solos ahí.")), "ok");
     pintarActivo(); refrescarObjetivos(); botones(); cargarTabla();
   }catch(e){
     say($("msgA"), "No se pudo crear la carpeta: " + e.message, "err");
@@ -888,11 +943,9 @@ $("btnNuevo").addEventListener("click", function(){
   pintarActivo(); refrescarObjetivos(); botones(); vistaPrevia();
 });
 
-/* Elegir la carpeta de destino en el equipo */
+/* Elegir la carpeta de destino en el equipo (solo cuando NO hay servidor en
+   la nube: allí los documentos se guardan directamente en el servidor). */
 if(HAY_FS){
-  $("btnRaiz").hidden = false;
-  $("raizTxt").hidden = false;
-  $("raizTxt").textContent = "Elige la carpeta donde quieres guardar. El sistema creará dentro de ella únicamente la carpeta del lote, sin añadir ningún otro nivel.";
   $("btnRaiz").addEventListener("click", async function(){
     try{
       raiz = await window.showDirectoryPicker({ mode:"readwrite" });
@@ -905,9 +958,28 @@ if(HAY_FS){
       if(e && e.name !== "AbortError") say($("msgA"), "No se pudo usar esa carpeta: " + e.message, "err");
     }
   });
-} else {
+}
+
+/* Ajusta la zona de destino segun el modo detectado. */
+function configurarDestino(){
+  if(MODE === "api"){
+    /* Todo vive en la nube: no se pide ninguna carpeta del equipo. */
+    $("campoRuta").hidden = true;
+    $("btnRaiz").hidden = true;
+    $("raizTxt").hidden = false;
+    $("raizTxt").textContent = "Los documentos se guardan en la nube, dentro de la carpeta del lote. " +
+      "No hace falta elegir ninguna carpeta de tu computador: entra desde cualquier equipo con tu usuario y ahí estarán.";
+    return;
+  }
+  $("campoRuta").hidden = false;
   $("raizTxt").hidden = false;
-  $("raizTxt").textContent = "Escribe aquí la ruta donde guardas los lotes (por ejemplo C:\\Users\\JORGE\\Documents\\PROYECT). Para que el sistema guarde los PDF solo, abre la aplicación en Chrome o Edge de escritorio y usa el botón de elegir carpeta.";
+  if(HAY_FS){
+    $("btnRaiz").hidden = false;
+    $("raizTxt").textContent = "Elige la carpeta donde quieres guardar. El sistema creará dentro de ella únicamente la carpeta del lote, sin añadir ningún otro nivel.";
+  } else {
+    $("btnRaiz").hidden = true;
+    $("raizTxt").textContent = "Escribe aquí la ruta donde guardas los lotes (por ejemplo C:\\Users\\JORGE\\Documents\\PROYECT). Para que el sistema guarde los PDF solo, abre la aplicación en Chrome o Edge de escritorio y usa el botón de elegir carpeta.";
+  }
 }
 
 /* Procesar (individual o masivo): une los PDF de cada casilla y guarda uno solo */
@@ -1430,8 +1502,8 @@ $("formAlta").addEventListener("submit", async function(e){
   var b = $("btnAlta");
   bloquear(b, true, "Guardando…");
   try{
-    var r = await SEG.crearLocal(u, c);
-    if(!r.ok) say($("msgAlta"), r.error, "err");
+    var r = await SEG.crearPrimero(u, c);
+    if(!r.ok){ if(r.error) say($("msgAlta"), r.error, "err"); }
     else { $("altaClave").value = ""; $("altaClave2").value = ""; say($("msgAlta"), ""); }
   }catch(err){
     say($("msgAlta"), "No se pudo guardar: " + err.message, "err");
@@ -1479,8 +1551,159 @@ $("formPw").addEventListener("submit", async function(e){
   bloquear(b, false);
 });
 $("btnSalir").addEventListener("click", function(){ SEG.salir(); });
+
+/* Ir y volver entre “entrar” y “crear el primer administrador”. */
+$("btnIrPrimer").addEventListener("click", function(){ SEG.verAlta(""); });
+$("btnVolverLogin").addEventListener("click", function(){ SEG.verLogin(""); });
+
+/* ------------------------------------------------------------------ *
+ * Panel de usuarios (solo administradores del servidor en la nube)
+ * ------------------------------------------------------------------ */
+function filaUsuario(u){
+  var tr = document.createElement("tr");
+  function celda(txt){ var td = document.createElement("td"); td.textContent = txt; tr.appendChild(td); return td; }
+  celda(u.usuario);
+  celda(u.rol === "admin" ? "Administrador" : "Auditor");
+  celda(u.activo ? "Activo" : "Bloqueado");
+  celda(u.ultimo ? fechaCorta(u.ultimo) : "Nunca ha entrado");
+  var td = document.createElement("td");
+  td.className = "acciones";
+  var propio = (u.usuario === SEG.usuario);
+  var bEstado = document.createElement("button");
+  bEstado.type = "button";
+  bEstado.className = "ghost mini";
+  bEstado.textContent = u.activo ? "Bloquear" : "Reactivar";
+  bEstado.disabled = propio;
+  if(propio) bEstado.title = "No puedes bloquear tu propia cuenta.";
+  bEstado.addEventListener("click", function(){ cambiarEstado(u.usuario, !u.activo); });
+  var bClave = document.createElement("button");
+  bClave.type = "button";
+  bClave.className = "ghost mini";
+  bClave.textContent = "Restablecer clave";
+  bClave.addEventListener("click", function(){ resetClave(u.usuario); });
+  td.appendChild(bEstado);
+  td.appendChild(bClave);
+  tr.appendChild(td);
+  return tr;
+}
+
+function fechaCorta(v){
+  var d = new Date(v);
+  if(isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("es", { day:"2-digit", month:"2-digit", year:"numeric" }) +
+         " " + d.toLocaleTimeString("es", { hour:"2-digit", minute:"2-digit" });
+}
+
+function mensajeTabla(txt){
+  var tb = $("usrTb");
+  tb.textContent = "";
+  var tr = document.createElement("tr");
+  var td = document.createElement("td");
+  td.colSpan = 5;
+  td.className = "vacio";
+  td.textContent = txt;
+  tr.appendChild(td);
+  tb.appendChild(tr);
+}
+
+async function listarUsuarios(){
+  mensajeTabla("Cargando usuarios…");
+  try{
+    var r = await SEG.pedir("api/usuarios");
+    if(r.status !== 200 || !r.datos || !r.datos.usuarios){
+      mensajeTabla("No se pudo obtener la lista de usuarios.");
+      return;
+    }
+    var lista = r.datos.usuarios;
+    if(!lista.length){ mensajeTabla("Todavía no hay usuarios."); return; }
+    var tb = $("usrTb");
+    tb.textContent = "";
+    lista.forEach(function(u){ tb.appendChild(filaUsuario(u)); });
+  }catch(err){
+    mensajeTabla("No se pudo obtener la lista: " + err.message);
+  }
+}
+
+async function cambiarEstado(u, activo){
+  say($("msgUsr"), activo ? "Reactivando…" : "Bloqueando…");
+  try{
+    var r = await SEG.pedir("api/usuarios/" + encodeURIComponent(u) + "/estado", { activo: !!activo });
+    if(r.status === 200 && r.datos && r.datos.ok){
+      say($("msgUsr"), activo ? "La cuenta de “" + u + "” vuelve a estar activa."
+                              : "La cuenta de “" + u + "” quedó bloqueada.", "ok");
+      await listarUsuarios();
+    } else {
+      say($("msgUsr"), (r.datos && r.datos.error) || "No se pudo cambiar el estado.", "err");
+    }
+  }catch(err){
+    say($("msgUsr"), "No se pudo cambiar el estado: " + err.message, "err");
+  }
+}
+
+async function resetClave(u){
+  var nueva = prompt("Contraseña nueva para “" + u + "” (mínimo 8, con letras y números):", "");
+  if(nueva === null) return;
+  nueva = String(nueva);
+  var f = SEG.fuerza(nueva);
+  if(f.nivel === "b"){ say($("msgUsr"), f.aviso, "err"); return; }
+  say($("msgUsr"), "Guardando la contraseña…");
+  try{
+    var r = await SEG.pedir("api/usuarios/" + encodeURIComponent(u) + "/clave", { clave: nueva });
+    if(r.status === 200 && r.datos && r.datos.ok){
+      say($("msgUsr"), "Listo. Entrégale la contraseña a “" + u + "” por un medio seguro y pídele que la cambie al entrar.", "ok");
+    } else {
+      say($("msgUsr"), (r.datos && r.datos.error) || "No se pudo restablecer la contraseña.", "err");
+    }
+  }catch(err){
+    say($("msgUsr"), "No se pudo restablecer la contraseña: " + err.message, "err");
+  }
+}
+
+function abrirUsr(){
+  $("nuUsuario").value = ""; $("nuClave").value = ""; $("nuRol").value = "auditor";
+  say($("msgUsr"), "");
+  $("ovUsr").hidden = false;
+  document.body.classList.add("noscroll");
+  listarUsuarios();
+  setTimeout(function(){ $("nuUsuario").focus(); }, 60);
+}
+function cerrarUsr(){
+  $("ovUsr").hidden = true;
+  if($("ov").hidden && $("ovPw").hidden) document.body.classList.remove("noscroll");
+}
+$("btnUsuarios").addEventListener("click", abrirUsr);
+$("usrX").addEventListener("click", cerrarUsr);
+$("usrCerrar").addEventListener("click", cerrarUsr);
+$("formUsr").addEventListener("submit", async function(e){
+  e.preventDefault();
+  var u = String($("nuUsuario").value || "").trim().toLowerCase();
+  var c = $("nuClave").value;
+  if(!/^[a-z0-9._-]{3,32}$/.test(u)){
+    say($("msgUsr"), "El usuario debe tener entre 3 y 32 caracteres: letras, números, punto, guion o guion bajo.", "err");
+    return;
+  }
+  var f = SEG.fuerza(c);
+  if(f.nivel === "b"){ say($("msgUsr"), f.aviso, "err"); return; }
+  var b = $("nuOk");
+  bloquear(b, true, "Creando…");
+  try{
+    var r = await SEG.pedir("api/usuarios", { usuario:u, clave:c, rol:$("nuRol").value });
+    if(r.status === 200 && r.datos && r.datos.ok){
+      say($("msgUsr"), "Usuario “" + u + "” creado. Entrégale la contraseña por un medio seguro.", "ok");
+      $("nuUsuario").value = ""; $("nuClave").value = "";
+      await listarUsuarios();
+    } else {
+      say($("msgUsr"), (r.datos && r.datos.error) || "No se pudo crear el usuario.", "err");
+    }
+  }catch(err){
+    say($("msgUsr"), "No se pudo crear el usuario: " + err.message, "err");
+  }
+  bloquear(b, false);
+});
+
 document.addEventListener("keydown", function(e){
   if(e.key === "Escape" && !$("ovPw").hidden) cerrarPw();
+  else if(e.key === "Escape" && !$("ovUsr").hidden) cerrarUsr();
 });
 
 /* ------------------------------------------------------------------ *
@@ -1507,7 +1730,10 @@ async function detectar(){
       if(j && j.ok){
         MODE = "api"; Store = Api;
         $("dot").className = "dot on";
-        $("modeTxt").textContent = "Servidor central conectado" + (j.auth ? " · acceso protegido" : "");
+        $("modeTxt").textContent = j.instalar
+          ? "Nube conectada · falta crear el administrador"
+          : "Nube conectada · tus documentos se guardan en el servidor";
+        configurarDestino();
         return;
       }
     }
@@ -1515,6 +1741,7 @@ async function detectar(){
   MODE = "local"; Store = Local;
   $("dot").className = "dot";
   $("modeTxt").textContent = "Modo local · datos en este navegador";
+  configurarDestino();
 }
 
 pintarCajas();

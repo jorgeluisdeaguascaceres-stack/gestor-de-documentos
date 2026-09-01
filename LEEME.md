@@ -186,16 +186,16 @@ Al restablecer o desactivar una cuenta, sus sesiones abiertas se cierran al inst
 | `PORT`          | Puerto de escucha                                 | `8080`            |
 | `DATA_DIR`      | Carpeta donde se guardan lotes, usuarios y bitácora | `./data`       |
 | `SESION_HORAS`  | Horas de inactividad antes de cerrar la sesión    | `8`               |
-| `APP_USER`      | Usuario administrador a crear en el primer arranque | `admin`         |
-| `APP_PASSWORD`  | Su contraseña (solo se usa si no hay usuarios)     | *(vacía)*        |
+| `APP_USER`      | (Opcional) usuario administrador a crear en el primer arranque | `admin`   |
+| `APP_PASSWORD`  | (Opcional) su contraseña; solo se usa si aún no hay usuarios    | *(vacía)* |
 | `TRAS_PROXY`    | `1` si hay un proxy/HTTPS delante, `0` para forzar lo contrario | se detecta solo |
 
-> **Advertencia:** si arrancas el servidor **en tu red local** sin ningún usuario
-> creado, queda **sin autenticación** y lo avisa por consola: cualquiera en la red
-> podría leer y descargar los documentos. Crea siempre el administrador antes de
-> compartirlo. Si la aplicación está publicada en internet y no hay usuarios, el
-> servidor **bloquea el acceso por completo** hasta que definas `APP_USER` y
-> `APP_PASSWORD`.
+> **Importante:** mientras no exista ningún usuario, **nadie puede entrar**. La
+> primera vez, la pantalla de acceso ofrece el botón **«Crear el primer
+> administrador»**: escribes usuario y contraseña y quedas registrado. Después,
+> ese administrador crea los demás usuarios desde el botón **Usuarios**. Las
+> variables `APP_USER` / `APP_PASSWORD` son solo un atajo opcional para crear ese
+> primer administrador automáticamente al arrancar.
 
 ---
 
@@ -235,17 +235,18 @@ LEEME.md
 
    | Clave           | Valor                                  |
    |-----------------|----------------------------------------|
-   | `APP_USER`      | el nombre del administrador, p. ej. `admin` |
-   | `APP_PASSWORD`  | una contraseña larga y única           |
    | `DATA_DIR`      | `/var/data`                            |
    | `SESION_HORAS`  | `8`                                    |
 
-   No hace falta tocar `PORT`: Render lo asigna solo y la aplicación lo respeta.
+   No necesitas variables de usuario ni de contraseña: el primer administrador se
+   crea desde la propia pantalla de la aplicación.
+   Tampoco hace falta tocar `PORT`: Render lo asigna solo y la aplicación lo respeta.
 4. En **Disks** añade un disco: nombre `datos`, ruta de montaje `/var/data`, 5 GB.
 5. **Create Web Service** y espera a que el registro muestre
    `Servidor listo en el puerto ...`.
-6. Abre la dirección `https://tu-servicio.onrender.com`, inicia sesión con el usuario y
-   la contraseña que pusiste y, dentro de la aplicación, **cámbiala** de inmediato.
+6. Abre la dirección `https://tu-servicio.onrender.com`. La primera vez pulsa
+   **«Crear el primer administrador»**, elige tu usuario y una contraseña fuerte, y
+   entra. Desde el botón **Usuarios** podrás crear las cuentas de tu equipo.
 
 ### ⚠ Muy importante: dónde quedan tus documentos
 
@@ -277,7 +278,7 @@ en cuenta que:
 | `Cannot find module ...server.js` | No subiste `server.js` o está en una subcarpeta. Súbelo a la raíz. |
 | `Missing script: start` / no arranca | Falta `package.json`, o el Start Command no es `node server.js`. |
 | `No open ports detected` | Alguien fijó `PORT` a mano con otro valor. Borra esa variable. |
-| `No hay ningún usuario creado ... BLOQUEADO` | Falta definir `APP_USER` y `APP_PASSWORD`. Añádelas y reinicia. |
+| `Todavía no hay ningún usuario creado ... BLOQUEADO` | Es normal en el primer arranque: abre la app y pulsa «Crear el primer administrador». |
 | Todo parece bien pero sigue el 503 | Pulsa **Manual Deploy → Clear build cache & deploy**. |
 
 ---

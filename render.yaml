@@ -17,10 +17,12 @@ services:
         value: /var/data     # debe coincidir con mountPath del disco de abajo
       - key: SESION_HORAS
         value: "8"
-      - key: APP_USER
-        sync: false          # lo escribes tu en el panel de Render
-      - key: APP_PASSWORD
-        sync: false          # lo escribes tu en el panel de Render (clave fuerte)
+      # El primer administrador se crea desde la pantalla de la app.
+      # (Opcional) si prefieres crearlo al arrancar, activa estas dos:
+      # - key: APP_USER
+      #   sync: false
+      # - key: APP_PASSWORD
+      #   sync: false
     disk:
       name: datos
       mountPath: /var/data   # aqui viven db.json, usuarios.json y los PDF

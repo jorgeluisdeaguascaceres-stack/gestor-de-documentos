@@ -96,6 +96,9 @@
   td{padding:10px;border-bottom:1px solid #1d2a41;vertical-align:middle}
   tr:last-child td{border-bottom:0}
   tr.selrow td{background:#132135}
+  td.acciones{white-space:nowrap;text-align:right}
+  td.acciones button{margin-left:6px}
+  td.vacio{color:var(--dim);text-align:center;padding:18px 10px}
   th.cchk,td.cchk{width:38px;text-align:center;padding-right:0}
   .chk{width:16px;height:16px;accent-color:var(--acc);cursor:pointer}
   .selbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--panel2);
@@ -168,6 +171,7 @@
     <div class="topright">
       <div class="who" id="who" hidden>
         <span>Sesión: <b id="whoTxt">—</b></span>
+        <button class="ghost mini" id="btnUsuarios" type="button" hidden>Usuarios</button>
         <button class="ghost mini" id="btnClave" type="button">Cambiar contraseña</button>
         <button class="ghost mini" id="btnSalir" type="button">Salir</button>
       </div>
@@ -185,7 +189,7 @@
     <div class="card">
       <h2>Sección 1 &middot; Configuración de destino y datos</h2>
       <div class="fields">
-        <div class="wide">
+        <div class="wide" id="campoRuta">
           <label for="ruta">Carpeta de destino</label>
           <input id="ruta" type="text" value="" placeholder="Elige la carpeta con el botón, o escribe la ruta: C:\Users\JORGE\Documents\PROYECT" autocomplete="off">
         </div>
@@ -315,12 +319,16 @@
       </form>
       <div class="msg" id="msgLogin"></div>
       <p class="gnote" id="notaLogin"></p>
+      <p class="gnote" id="lineaPrimer" hidden>
+        ¿Es la primera vez que se usa la aplicación?
+        <button class="ghost mini" id="btnIrPrimer" type="button">Crear el primer administrador</button>
+      </p>
     </div>
 
-    <!-- primer uso en modo local: definir clave -->
+    <!-- primer uso: definir el primer usuario / administrador -->
     <div id="gAlta" hidden>
-      <h2>Protege esta aplicación</h2>
-      <p class="sub">Es la primera vez que se abre en este equipo. Crea un usuario y una contraseña para bloquear el acceso.</p>
+      <h2 id="altaTitulo">Protege esta aplicación</h2>
+      <p class="sub" id="altaSub">Es la primera vez que se abre en este equipo. Crea un usuario y una contraseña para bloquear el acceso.</p>
       <form id="formAlta" autocomplete="off">
         <div class="gfield">
           <label for="altaUsuario">Usuario</label>
@@ -338,7 +346,10 @@
         <button id="btnAlta" type="submit">Guardar y entrar</button>
       </form>
       <div class="msg" id="msgAlta"></div>
-      <p class="gnote">Sin servidor central, la contraseña se guarda cifrada (resumen PBKDF2) en este navegador y el bloqueo es disuasorio: impide el uso casual, pero no cifra los PDF. Para seguridad real usa el servidor central.</p>
+      <p class="gnote" id="altaNota">Sin servidor central, la contraseña se guarda cifrada (resumen PBKDF2) en este navegador y el bloqueo es disuasorio: impide el uso casual, pero no cifra los PDF. Para seguridad real usa el servidor central.</p>
+      <p class="gnote" id="lineaVolverLogin" hidden>
+        <button class="ghost mini" id="btnVolverLogin" type="button">Ya tengo usuario: volver al acceso</button>
+      </p>
     </div>
   </div>
 </div>
@@ -370,6 +381,55 @@
         </div>
       </form>
       <div class="msg" id="msgPw"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= GESTIÓN DE USUARIOS (solo administrador) ================= -->
+<div class="ov" id="ovUsr" hidden>
+  <div class="ovbox" style="height:auto;max-width:720px">
+    <div class="ovtop">
+      <div style="flex:1 1 auto">
+        <h3>Usuarios de la aplicación</h3>
+        <p class="sub">Crea las cuentas de tu equipo y activa o desactiva el acceso cuando lo necesites.</p>
+      </div>
+      <button class="ovx" id="usrX" type="button" title="Cerrar">&times;</button>
+    </div>
+    <div style="padding:16px;overflow:auto">
+      <div class="tablebox">
+        <table>
+          <thead><tr>
+            <th>Usuario</th><th>Permiso</th><th>Estado</th><th>Último acceso</th><th>Acciones</th>
+          </tr></thead>
+          <tbody id="usrTb"></tbody>
+        </table>
+      </div>
+      <h2 style="margin-top:18px">Añadir una persona</h2>
+      <form id="formUsr" autocomplete="off">
+        <div class="fields">
+          <div>
+            <label for="nuUsuario">Usuario (letras, números, punto o guion)</label>
+            <input id="nuUsuario" type="text" autocomplete="off" placeholder="maria.gomez">
+          </div>
+          <div>
+            <label for="nuClave">Contraseña inicial (mínimo 8, con letras y números)</label>
+            <input id="nuClave" type="password" autocomplete="new-password" placeholder="••••••••">
+          </div>
+          <div>
+            <label for="nuRol">Permiso</label>
+            <select id="nuRol">
+              <option value="auditor">Auditor (carga y consulta)</option>
+              <option value="admin">Administrador (además gestiona usuarios)</option>
+            </select>
+          </div>
+        </div>
+        <div class="actions">
+          <button id="nuOk" type="submit">Crear usuario</button>
+          <button class="ghost" id="usrCerrar" type="button">Cerrar</button>
+        </div>
+      </form>
+      <div class="msg" id="msgUsr"></div>
+      <div class="hint">Cada persona puede cambiar su propia contraseña desde el botón “Cambiar contraseña”. Si alguien la olvida, usa “Restablecer clave” y entrégasela por un medio seguro.</div>
     </div>
   </div>
 </div>

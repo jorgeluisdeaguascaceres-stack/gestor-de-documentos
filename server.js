@@ -3,7 +3,8 @@
  * Solo usa módulos nativos de Node.js: no requiere instalar librerías.
  *
  *   node server.js                      -> http://localhost:8080
- *   APP_USER=admin APP_PASSWORD=ClaveFuerte1 node server.js   (crea el 1er usuario)
+ *   El primer administrador se crea desde la propia pantalla de la app.
+ *   (Opcional) APP_USER=admin APP_PASSWORD=ClaveFuerte1 node server.js
  *
  * Administración de usuarios desde la consola:
  *   node server.js usuarios                        -> lista los usuarios
@@ -301,14 +302,11 @@ function cookieSesion(token, borrar, req){
 /* ---------------- autorización de cada petición ---------------- */
 function autorizado(req,res){
   if(!hayUsuarios()){
-    /* En internet NUNCA se permite el modo abierto: cualquiera podría ver y
-       descargar los documentos. Hay que crear el primer administrador con las
-       variables APP_USER y APP_PASSWORD. */
-    if(TRAS_PROXY){
-      json(res, 503, { error:"La aplicación aún no tiene usuarios. El administrador debe definir APP_USER y APP_PASSWORD y reiniciar el servicio." });
-      return false;
-    }
-    return true;                         // solo en red local: modo abierto (se avisa en consola)
+    /* Sin usuarios no se abre nada: la propia pantalla ofrece crear el primer
+       administrador (endpoint /api/primer-admin). Nunca hay modo abierto. */
+    json(res, 401, { instalar:true,
+      error:"La aplicaci\u00f3n todav\u00eda no tiene usuarios. Crea el primer administrador en la pantalla de acceso." });
+    return false;
   }
   var s = sesionDe(req);
   if(s){ req.sesion = s; return true; }
@@ -325,7 +323,6 @@ function autorizado(req,res){
   return false;
 }
 function soloAdmin(req,res){
-  if(!hayUsuarios()) return true;
   if(req.sesion && req.sesion.rol === "admin") return true;
   json(res, 403, { error:"Solo un administrador puede hacer esto." });
   return false;
@@ -435,8 +432,27 @@ http.createServer(async function(req,res){
     return json(res, 200, {
       ok:true,
       auth: hayUsuarios(),
+      instalar: !hayUsuarios(),
+      nube: true,
       sesion: s0 ? { usuario:s0.usuario, rol:s0.rol } : null
     });
+  }
+
+  /* ---- alta del PRIMER administrador (solo si todavía no hay usuarios) ----
+     Es la única forma de estrenar la aplicación sin tocar la consola: en cuanto
+     existe un usuario, esta puerta se cierra para siempre. */
+  if(p === "/api/primer-admin" && req.method === "POST"){
+    if(hayUsuarios()) return json(res,403,{ error:"Ya hay usuarios creados. Pide al administrador que te dé acceso." });
+    var dp;
+    try { dp = JSON.parse((await leerCuerpo(req, 4096)).toString("utf8") || "{}"); }
+    catch(e){ return json(res,400,{ error:"Datos no v\u00e1lidos" }); }
+    var rp = creaUsuario(dp.usuario, dp.clave, "admin", false);
+    if(rp.error) return json(res,400,{ error: rp.error });
+    rp.usuario.ultimo = Date.now(); guardaUsuarios();
+    var tokp = nuevaSesion(rp.usuario, req);
+    bitacora("1er ADMIN  " + rp.usuario.usuario + "  " + ipDe(req));
+    res.setHeader("Set-Cookie", cookieSesion(tokp, false, req));
+    return json(res,200,{ ok:true, usuario: rp.usuario.usuario, rol:"admin" });
   }
 
   /* ---- inicio de sesión ---- */
@@ -445,8 +461,8 @@ http.createServer(async function(req,res){
     try { din = JSON.parse((await leerCuerpo(req, 4096)).toString("utf8") || "{}"); }
     catch(e){ return json(res,400,{ error:"Datos no v\u00e1lidos" }); }
     if(!hayUsuarios()){
-      if(TRAS_PROXY) return json(res,503,{ error:"Aún no hay ningún usuario creado. Define APP_USER y APP_PASSWORD en el panel del servicio y reinicia." });
-      return json(res,200,{ ok:true, abierto:true });
+      return json(res,409,{ instalar:true,
+        error:"Todav\u00eda no hay ning\u00fan usuario. Crea el primer administrador en esta misma pantalla." });
     }
     var k = claveIntento(req, din.usuario);
     var espera = bloqueado(k);
@@ -479,7 +495,7 @@ http.createServer(async function(req,res){
   /* ---- quién soy ---- */
   if(p === "/api/yo" && req.method === "GET"){
     var sy = sesionDe(req);
-    if(!hayUsuarios()) return json(res,200,{ abierto:true });
+    if(!hayUsuarios()) return json(res,200,{ instalar:true });
     if(!sy) return json(res,401,{ error:"Sin sesi\u00f3n", login:true });
     return json(res,200,{ usuario: sy.usuario, rol: sy.rol, expira: sy.exp });
   }
@@ -522,6 +538,44 @@ http.createServer(async function(req,res){
     if(rn.error) return json(res,400,{ error: rn.error });
     bitacora("NUEVO USR  " + rn.usuario.usuario + "  por " + (req.sesion && req.sesion.usuario));
     return json(res,200,{ ok:true, usuario:{ usuario:rn.usuario.usuario, rol:rn.usuario.rol, activo:true } });
+  }
+
+  /* ---- activar / desactivar un usuario (solo administrador) ---- */
+  var mEst = p.match(/^\/api\/usuarios\/([a-z0-9._-]{3,32})\/estado$/);
+  if(mEst && req.method === "POST"){
+    if(!soloAdmin(req,res)) return;
+    var de;
+    try { de = JSON.parse((await leerCuerpo(req, 1024)).toString("utf8") || "{}"); }
+    catch(e){ return json(res,400,{ error:"Datos no v\u00e1lidos" }); }
+    var ue = buscaUsuario(mEst[1]);
+    if(!ue) return json(res,404,{ error:"Ese usuario no existe." });
+    var quiereActivo = !!de.activo;
+    if(!quiereActivo){
+      if(ue.usuario === (req.sesion && req.sesion.usuario))
+        return json(res,400,{ error:"No puedes desactivar tu propia cuenta." });
+      var admins = usuarios.usuarios.filter(function(x){ return x.rol === "admin" && x.activo; });
+      if(ue.rol === "admin" && admins.length <= 1)
+        return json(res,400,{ error:"Debe quedar al menos un administrador activo." });
+    }
+    ue.activo = quiereActivo;
+    if(!quiereActivo) cierraSesionesDe(ue.usuario);
+    guardaUsuarios();
+    bitacora((quiereActivo ? "ACTIVAR    " : "DESACTIVAR ") + ue.usuario + "  por " + (req.sesion && req.sesion.usuario));
+    return json(res,200,{ ok:true, usuario:{ usuario:ue.usuario, rol:ue.rol, activo:ue.activo } });
+  }
+
+  /* ---- restablecer la contraseña de otro usuario (solo administrador) ---- */
+  var mCl = p.match(/^\/api\/usuarios\/([a-z0-9._-]{3,32})\/clave$/);
+  if(mCl && req.method === "POST"){
+    if(!soloAdmin(req,res)) return;
+    var dr;
+    try { dr = JSON.parse((await leerCuerpo(req, 4096)).toString("utf8") || "{}"); }
+    catch(e){ return json(res,400,{ error:"Datos no v\u00e1lidos" }); }
+    if(!buscaUsuario(mCl[1])) return json(res,404,{ error:"Ese usuario no existe." });
+    var rr = cambiaClave(mCl[1], dr.clave);
+    if(rr.error) return json(res,400,{ error: rr.error });
+    bitacora("RESET CLAVE " + normUsuario(mCl[1]) + "  por " + (req.sesion && req.sesion.usuario));
+    return json(res,200,{ ok:true, aviso:"Contrase\u00f1a restablecida. Esa persona debe entrar con la nueva clave." });
   }
 
 
@@ -682,15 +736,10 @@ http.createServer(async function(req,res){
   console.log("Servidor listo en el puerto " + PORT + (TRAS_PROXY ? " (detrás de proxy/HTTPS)" : " -> http://localhost:" + PORT));
   console.log("Carpetas y PDFs se guardan en: " + DATA_DIR);
   if(!hayUsuarios()){
-    if(TRAS_PROXY){
-      console.log("\n⛔ No hay ningún usuario creado y la app está publicada en internet:");
-      console.log("   el acceso queda BLOQUEADO por seguridad. Define las variables");
-      console.log("   APP_USER y APP_PASSWORD en el panel del servicio y reinicia.\n");
-    } else {
-      console.log("\n⚠  ATENCIÓN: no hay ningún usuario creado; cualquiera en la red puede entrar");
-      console.log("   y descargar los documentos. Crea el primer administrador así:");
-      console.log("   node server.js nuevo-usuario admin TuClave1234 admin\n");
-    }
+    console.log("\n⚠  Todavía no hay ningún usuario creado: el acceso está BLOQUEADO.");
+    console.log("   Abre la app en el navegador y usa \"Crear el primer administrador\"");
+    console.log("   para registrarlo. También puedes hacerlo por consola con:");
+    console.log("   node server.js nuevo-usuario admin TuClave1234 admin\n");
   } else {
     console.log("Acceso protegido: " + usuarios.usuarios.length + " usuario(s) registrado(s).");
     console.log("La sesión se cierra tras " + (SES_MS/3600000) + " h de inactividad.");
