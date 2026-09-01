@@ -13,11 +13,15 @@
  * Variables de entorno necesarias:
  *   R2_ENDPOINT           https://<ID_DE_CUENTA>.r2.cloudflarestorage.com
  *                         (o R2_ACCOUNT_ID=<ID_DE_CUENTA> y se arma solo)
+ *                         Tambien vale un endpoint compatible S3 de otro
+ *                         proveedor, p. ej. Supabase Storage:
+ *                         https://<proyecto>.storage.supabase.co/storage/v1/s3
  *   R2_BUCKET             nombre del bucket, p. ej. gestion-documental
  *   R2_ACCESS_KEY_ID      Access Key ID del token de R2
  *   R2_SECRET_ACCESS_KEY  Secret Access Key del token de R2
  *   R2_PREFIX             (opcional) subcarpeta dentro del bucket
- *   R2_REGION             (opcional) por defecto "auto"
+ *   R2_REGION             (opcional) por defecto "auto"; en Supabase u otros
+ *                         proveedores hay que poner su region, p. ej. us-east-2
  * ==================================================================== */
 "use strict";
 
@@ -35,6 +39,16 @@ var LLAVE   = (process.env.R2_ACCESS_KEY_ID || "").trim();
 var SECRETO = (process.env.R2_SECRET_ACCESS_KEY || "").trim();
 var REGION  = (process.env.R2_REGION || "auto").trim();
 var PREFIJO = (process.env.R2_PREFIX || "").replace(/^\/+|\/+$/g, "");
+
+/* Algunos proveedores (Supabase Storage, MinIO detras de un proxy) dan un
+   endpoint con carpeta, p. ej. https://xxx.storage.supabase.co/storage/v1/s3
+   Ese trozo de ruta hay que conservarlo delante del bucket y tambien al
+   firmar la peticion, o el servidor responde 404 / firma invalida. */
+var RAIZ = "";
+try {
+  RAIZ = new URL(ENDPOINT).pathname.replace(/\/+$/, "");
+  if(RAIZ === "/") RAIZ = "";
+} catch(e){ RAIZ = ""; }
 
 var CONFIGURADA = !!(ENDPOINT && BUCKET && LLAVE && SECRETO);
 var VACIO_SHA = crypto.createHash("sha256").update("").digest("hex");
@@ -95,7 +109,7 @@ function peticion(metodo, clave, cuerpo, opciones){
   if(!CONFIGURADA) return Promise.reject(new Error("El almacenamiento en la nube no esta configurado."));
 
   var url  = new URL(ENDPOINT);
-  var base = "/" + uriEnc(BUCKET) + (clave ? "/" + rutaEnc(clavePlena(clave)) : "");
+  var base = RAIZ + "/" + uriEnc(BUCKET) + (clave ? "/" + rutaEnc(clavePlena(clave)) : "");
   var qs   = opciones.query || {};
   var canonQ = Object.keys(qs).sort().map(function(k){
     return uriEnc(k) + "=" + uriEnc(qs[k]);
@@ -249,8 +263,8 @@ async function comprobar(){
   try {
     var r = await peticion("GET", "", null, { query:{ "list-type":"2", "max-keys":"1" } });
     if(r.code === 200) return { ok:true };
-    if(r.code === 403) return { ok:false, error:"credenciales rechazadas (revisa Access Key y Secret)" };
-    if(r.code === 404) return { ok:false, error:'el bucket "' + BUCKET + '" no existe' };
+    if(r.code === 403) return { ok:false, error:"credenciales rechazadas (revisa la clave de acceso, la clave secreta y la region)" };
+    if(r.code === 404) return { ok:false, error:'el bucket "' + BUCKET + '" no existe (revisa el nombre exacto y el endpoint)' };
     return { ok:false, error: textoError(r) };
   } catch(e){
     return { ok:false, error: e.message };

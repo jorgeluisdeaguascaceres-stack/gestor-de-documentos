@@ -269,6 +269,26 @@ clave secreta.
    Opcionales: `R2_PREFIX` (una carpeta dentro del bucket, útil si lo compartes con
    otra cosa) y `R2_ENDPOINT` (solo si Cloudflare te da una dirección distinta).
 
+#### Si en vez de Cloudflare usas Supabase Storage (u otro compatible)
+
+La aplicación también funciona con cualquier almacenamiento «compatible S3»:
+Supabase Storage, Backblaze B2, MinIO, Wasabi o AWS S3. En ese caso **no** pongas
+`R2_ACCOUNT_ID`; usa estas variables:
+
+   | Clave                     | Valor                                                        |
+   |---------------------------|--------------------------------------------------------------|
+   | `R2_ENDPOINT`             | el **Endpoint** que te muestra el proveedor, tal cual        |
+   | `R2_REGION`               | la **Región** que te muestra el proveedor, p. ej. `us-east-2`|
+   | `R2_BUCKET`               | el nombre exacto del bucket que creaste                      |
+   | `R2_ACCESS_KEY_ID`        | el Key ID de la clave de acceso                              |
+   | `R2_SECRET_ACCESS_KEY`    | la clave secreta (solo se muestra al crearla)                |
+
+En Supabase, el endpoint y la región están en **Storage → S3 (Configuration)**, y el
+bucket se crea aparte en **Storage → Files → New bucket**. Ojo: crear la clave de
+acceso no crea el bucket; son dos cosas distintas y el nombre debe coincidir
+exactamente con el de `R2_BUCKET`. Con Supabase la región **es obligatoria**: si la
+dejas vacía la firma no coincide y el servicio no arranca.
+
    No necesitas variables de usuario ni de contraseña: el primer administrador se
    crea desde la propia pantalla de la aplicación.
    Tampoco hace falta tocar `PORT`: Render lo asigna solo y la aplicación lo respeta.
@@ -328,6 +348,8 @@ en cuenta que:
 | `Cannot find module ...server.js` | No subiste `server.js` o está en una subcarpeta. Súbelo a la raíz. |
 | `Cannot find module ./nube` | Falta `nube.js` en la raíz del repositorio. |
 | `No se pudo conectar con Cloudflare R2` | Revisa las cuatro variables `R2_*`; el token debe tener permiso de lectura **y** escritura sobre ese bucket. |
+| `el bucket "..." no existe` | El bucket no está creado, o el nombre no coincide letra por letra (cuidado con mayúsculas y espacios al pegar). Créalo en tu proveedor con el mismo nombre. |
+| `credenciales rechazadas` | Clave de acceso, clave secreta o región incorrectas. En Supabase y similares, `R2_REGION` debe ser la región que te muestra el panel. |
 | `Missing script: start` / no arranca | Falta `package.json`, o el Start Command no es `node server.js`. |
 | `No open ports detected` | Alguien fijó `PORT` a mano con otro valor. Borra esa variable. |
 | `Todavía no hay ningún usuario creado ... BLOQUEADO` | Es normal en el primer arranque: abre la app y pulsa «Crear el primer administrador». |
