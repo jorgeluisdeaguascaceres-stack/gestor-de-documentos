@@ -1277,6 +1277,8 @@ function refrescarBarraSel(){
     : "Marca varios lotes para descargarlos juntos en un solo ZIP.";
   $("btnZipSel").disabled = !docs;
   $("btnLimpiaSel").disabled = !m.length;
+  /* La copia completa solo tiene sentido (y permiso) con servidor central. */
+  $("btnCopia").hidden = !SEG.esAdmin;
   var todos = visibles.length > 0 && m.length === visibles.length;
   var chAll = $("chAll");
   chAll.checked = todos;
@@ -1456,6 +1458,18 @@ $("btnZipSel").addEventListener("click", function(){
   var m = marcados();
   if(!m.length){ say($("msgB"), "Marca primero los lotes que quieres descargar.", "err"); return; }
   zipVarios(m, $("msgB"));
+});
+
+/* Copia de seguridad completa: un solo ZIP con TODOS los PDF guardados en la
+   nube más un inventario. Solo para administradores del servidor central. */
+$("btnCopia").addEventListener("click", function(){
+  if(!SEG.esAdmin){
+    say($("msgB"), "Solo un administrador del servidor central puede descargar la copia completa.", "err");
+    return;
+  }
+  window.location.href = "api/copia";
+  say($("msgB"), "Preparando la copia completa (todos los documentos + inventario). " +
+                 "Con muchos lotes puede tardar un rato; guárdala en un lugar seguro.", "ok");
 });
 
 /* ------------------------------------------------------------------ *
@@ -1730,9 +1744,13 @@ async function detectar(){
       if(j && j.ok){
         MODE = "api"; Store = Api;
         $("dot").className = "dot on";
+        var n = j.nube || {};
+        var donde = n.permanente
+          ? "Nube conectada · tus documentos quedan guardados de forma permanente"
+          : "Nube conectada · atención: almacenamiento temporal, pide activar la nube de archivos";
         $("modeTxt").textContent = j.instalar
           ? "Nube conectada · falta crear el administrador"
-          : "Nube conectada · tus documentos se guardan en el servidor";
+          : donde;
         configurarDestino();
         return;
       }

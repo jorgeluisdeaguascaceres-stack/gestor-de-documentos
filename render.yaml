@@ -1,29 +1,53 @@
 # Configuracion para Render (https://render.com)
 # Sube este archivo a la raiz de tu repositorio de GitHub.
 # Render lo detecta solo cuando creas el servicio con "Blueprint".
+#
+# IMPORTANTE: con el plan gratis NO hay disco permanente en Render, asi que los
+# datos se guardan en Cloudflare R2 (10 GB gratis). Rellena las cuatro variables
+# R2_* con los datos de tu cuenta de Cloudflare y nada se borrara al reiniciar.
 
 services:
   - type: web
     name: gestor-de-documentos
     runtime: node
-    plan: starter          # el disco persistente NO funciona en el plan gratis
+    plan: free             # gratis: los datos viven en Cloudflare R2, no en el disco
     buildCommand: ""       # la app no usa librerias externas: no hay nada que instalar
     startCommand: node server.js
-    healthCheckPath: /
+    healthCheckPath: /api/health
     envVars:
       - key: NODE_VERSION
         value: "20"
-      - key: DATA_DIR
-        value: /var/data     # debe coincidir con mountPath del disco de abajo
       - key: SESION_HORAS
         value: "8"
+
+      # ---- Cloudflare R2: aqui viven los PDF, los usuarios y la bitacora ----
+      # sync: false = Render te pedira el valor al crear el servicio y lo guarda
+      # como secreto (no queda escrito en el repositorio).
+      - key: R2_ACCOUNT_ID
+        sync: false        # el identificador de tu cuenta de Cloudflare
+      - key: R2_BUCKET
+        sync: false        # nombre del bucket, por ejemplo: documentos-ips
+      - key: R2_ACCESS_KEY_ID
+        sync: false        # del token de API de R2
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false        # del token de API de R2 (solo se ve una vez)
+      # (Opcional) carpeta dentro del bucket, util si compartes el bucket:
+      # - key: R2_PREFIX
+      #   value: gestor
+
       # El primer administrador se crea desde la pantalla de la app.
       # (Opcional) si prefieres crearlo al arrancar, activa estas dos:
       # - key: APP_USER
       #   sync: false
       # - key: APP_PASSWORD
       #   sync: false
-    disk:
-      name: datos
-      mountPath: /var/data   # aqui viven db.json, usuarios.json y los PDF
-      sizeGB: 5
+
+# Si algun dia prefieres pagar el plan "starter" y usar disco propio en vez de R2,
+# quita las variables R2_*, pon plan: starter y descomenta esto:
+#    envVars:
+#      - key: DATA_DIR
+#        value: /var/data
+#    disk:
+#      name: datos
+#      mountPath: /var/data
+#      sizeGB: 5

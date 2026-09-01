@@ -213,6 +213,7 @@ index.html
 app.js
 pdfmerge.js
 server.js        <-- imprescindible: es el programa que atiende las peticiones
+nube.js          <-- imprescindible: guarda todo en Cloudflare R2
 package.json     <-- indica cómo arrancar la aplicación
 render.yaml      <-- configuración opcional para Render
 LEEME.md
@@ -222,7 +223,30 @@ LEEME.md
 > dirección web responde **503 Service Unavailable** o “Bad Gateway”, aunque el panel
 > diga “is live”. Es el error más habitual.
 
-### Pasos en Render
+### Paso 1: crear el almacén gratuito en Cloudflare R2 (imprescindible)
+
+Render, en su plan gratis, borra todo lo que el programa guarde en su propio disco cada
+vez que se reinicia. Para que **nada se pierda**, la aplicación guarda los PDF, las
+carpetas, los usuarios y la bitácora en **Cloudflare R2**, que regala 10 GB de forma
+permanente. Solo hay que hacerlo una vez y no pide tarjeta para el plan gratuito.
+
+1. Crea una cuenta gratis en **cloudflare.com** y entra al panel.
+2. En el menú de la izquierda abre **R2** → **Create bucket**.
+   - Nombre, por ejemplo: `documentos-ips` (apúntalo).
+   - Deja la ubicación automática y crea el bucket. **No lo hagas público.**
+3. Copia tu **Account ID**: aparece en la página principal de R2, a la derecha
+   (una cadena larga de letras y números).
+4. En R2 entra en **Manage R2 API Tokens** → **Create API token**:
+   - Permiso: **Object Read & Write**.
+   - Limítalo al bucket que acabas de crear.
+   - Al crearlo verás **Access Key ID** y **Secret Access Key**.
+     ⚠ La clave secreta **solo se muestra una vez**: cópiala y guárdala en un lugar
+     seguro antes de cerrar la ventana.
+
+Te quedan cuatro datos: identificador de cuenta, nombre del bucket, clave de acceso y
+clave secreta.
+
+### Paso 2: pasos en Render
 
 1. Entra en **render.com**, botón **New +** → **Web Service** y conecta tu repositorio
    de GitHub.
@@ -230,31 +254,54 @@ LEEME.md
    - **Language / Runtime:** `Node`
    - **Build Command:** déjalo **vacío** (la aplicación no usa librerías externas)
    - **Start Command:** `node server.js`
-   - **Instance Type:** ver la advertencia de datos más abajo
-3. En **Environment / Environment Variables** añade:
+   - **Instance Type:** `Free` ya es suficiente, porque los datos van a R2
+3. En **Environment / Environment Variables** añade estas claves con los datos del
+   paso 1:
 
-   | Clave           | Valor                                  |
-   |-----------------|----------------------------------------|
-   | `DATA_DIR`      | `/var/data`                            |
-   | `SESION_HORAS`  | `8`                                    |
+   | Clave                     | Valor                                        |
+   |---------------------------|----------------------------------------------|
+   | `R2_ACCOUNT_ID`           | tu identificador de cuenta de Cloudflare      |
+   | `R2_BUCKET`               | el nombre del bucket, p. ej. `documentos-ips` |
+   | `R2_ACCESS_KEY_ID`        | la clave de acceso del token                  |
+   | `R2_SECRET_ACCESS_KEY`    | la clave secreta del token                    |
+   | `SESION_HORAS`            | `8`                                           |
+
+   Opcionales: `R2_PREFIX` (una carpeta dentro del bucket, útil si lo compartes con
+   otra cosa) y `R2_ENDPOINT` (solo si Cloudflare te da una dirección distinta).
 
    No necesitas variables de usuario ni de contraseña: el primer administrador se
    crea desde la propia pantalla de la aplicación.
    Tampoco hace falta tocar `PORT`: Render lo asigna solo y la aplicación lo respeta.
-4. En **Disks** añade un disco: nombre `datos`, ruta de montaje `/var/data`, 5 GB.
+4. **No añadas ningún disco** y no pongas `DATA_DIR`: con R2 no hacen falta.
 5. **Create Web Service** y espera a que el registro muestre
+   `Almacenamiento permanente en Cloudflare R2 ...` y después
    `Servidor listo en el puerto ...`.
 6. Abre la dirección `https://tu-servicio.onrender.com`. La primera vez pulsa
    **«Crear el primer administrador»**, elige tu usuario y una contraseña fuerte, y
    entra. Desde el botón **Usuarios** podrás crear las cuentas de tu equipo.
 
+> Si las claves de R2 están puestas pero son incorrectas, la aplicación **no arranca**
+> a propósito y el registro explica el problema. Es una protección: así nunca trabajas
+> creyendo que se guarda algo que en realidad se iba a perder.
+
 ### ⚠ Muy importante: dónde quedan tus documentos
 
-En el **plan gratuito** el almacenamiento es temporal: cada vez que Render reinicia o
-redespliega el servicio (también lo hace solo tras 15 minutos sin visitas) **se borran
-los PDF, los lotes y los usuarios** y vuelves a empezar de cero. Para conservar la
-información necesitas un **disco persistente**, disponible solo en los planes de pago.
-Si vas a usar el plan gratis, trátalo como una prueba y descarga los ZIP a tu equipo.
+- **Con las cuatro claves `R2_*` puestas:** todo (PDF, carpetas, usuarios y bitácora)
+  queda guardado en Cloudflare de forma permanente. Puedes reiniciar, redesplegar o
+  dejar el servicio dormido: al volver, la información sigue ahí. Arriba a la derecha
+  la aplicación indica «tus documentos quedan guardados de forma permanente».
+- **Sin esas claves:** la aplicación sigue funcionando, pero guarda en el disco del
+  servidor, y en el plan gratis de Render **eso se borra en cada reinicio** (ocurre
+  también solo, tras unos minutos sin visitas). En ese caso el aviso de arriba a la
+  derecha te lo recuerda: trátalo como una prueba y descarga los ZIP a tu equipo.
+
+### Copia de seguridad con un solo clic
+
+En la pantalla **«Carpetas y descargas»**, los administradores del servidor central ven
+el botón **«Descargar copia completa»**: genera un único ZIP con **todos** los PDF
+guardados, ordenados por carpeta, más un `inventario.json` con los datos de cada lote.
+Guárdalo en tu equipo o en un disco externo cada cierto tiempo: es tu respaldo si
+algún día pierdes el acceso a la cuenta de Cloudflare o de Render.
 
 ### ⚠ Datos clínicos y responsabilidad
 
@@ -269,13 +316,18 @@ en cuenta que:
   un uso institucional, consúltalo con el área jurídica o de seguridad de la información
   de tu entidad; puede exigirse alojamiento propio, contrato de tratamiento de datos y
   copias de respaldo.
-- Haz **copias de seguridad** periódicas descargando los ZIP de cada carpeta.
+- Haz **copias de seguridad** periódicas con el botón **«Descargar copia completa»**
+  (o descargando los ZIP de cada carpeta) y guárdalas cifradas o bajo llave.
+- No compartas capturas de pantalla de la aplicación: pueden mostrar datos de
+  pacientes.
 
 ### Si la página responde 503 o “Bad Gateway”
 
 | Señal en el registro de Render | Causa y solución |
 |-------------------------------|------------------|
 | `Cannot find module ...server.js` | No subiste `server.js` o está en una subcarpeta. Súbelo a la raíz. |
+| `Cannot find module ./nube` | Falta `nube.js` en la raíz del repositorio. |
+| `No se pudo conectar con Cloudflare R2` | Revisa las cuatro variables `R2_*`; el token debe tener permiso de lectura **y** escritura sobre ese bucket. |
 | `Missing script: start` / no arranca | Falta `package.json`, o el Start Command no es `node server.js`. |
 | `No open ports detected` | Alguien fijó `PORT` a mano con otro valor. Borra esa variable. |
 | `Todavía no hay ningún usuario creado ... BLOQUEADO` | Es normal en el primer arranque: abre la app y pulsa «Crear el primer administrador». |
@@ -291,6 +343,7 @@ en cuenta que:
 | `app.js`     | Acceso con usuario y contraseña, nomenclatura, cargas, ZIP, vista previa e histórico |
 | `pdfmerge.js`| Unión de varios PDF en uno solo, dentro del navegador        |
 | `server.js`  | Servidor central opcional con usuarios, sesiones y bitácora (Node.js, sin dependencias) |
+| `nube.js`    | Guarda documentos y datos en Cloudflare R2 para que nada se borre al reiniciar |
 | `package.json` | Indica a la nube cómo arrancar la aplicación                |
-| `render.yaml`| Configuración lista para Render (servicio, disco y variables) |
+| `render.yaml`| Configuración lista para Render (servicio y variables, incluidas las de R2) |
 | `LEEME.md`   | Este documento                                              |

@@ -14,6 +14,12 @@
  *   node server.js borrar-usuario juan
  *
  * Variables: PORT, DATA_DIR, APP_USER, APP_PASSWORD, SESION_HORAS
+ *
+ * DATOS PERMANENTES (importante en planes gratuitos tipo Render):
+ *   si se configuran las variables R2_* (ver nube.js), los PDF, las carpetas,
+ *   los usuarios y la bitácora se guardan en Cloudflare R2 y NO se pierden
+ *   cuando el servicio se reinicia. Sin esas variables, todo se guarda en el
+ *   disco del propio servidor, igual que antes.
  */
 "use strict";
 
@@ -21,15 +27,13 @@ var http = require("http");
 var fs   = require("fs");
 var path = require("path");
 var crypto = require("crypto");
+var nube = require("./nube");
 
 var PORT     = parseInt(process.env.PORT || "8080", 10);
 var DATA_DIR = path.resolve(process.env.DATA_DIR || path.join(__dirname, "data"));
 var WEB_DIR  = __dirname;
 var USER     = process.env.APP_USER || "admin";
 var PASS     = process.env.APP_PASSWORD || "";
-var DB_FILE  = path.join(DATA_DIR, "db.json");
-var USU_FILE = path.join(DATA_DIR, "usuarios.json");
-var LOG_FILE = path.join(DATA_DIR, "bitacora.log");
 var SES_MS   = Math.max(1, parseFloat(process.env.SESION_HORAS || "8")) * 3600 * 1000;
 var MAX_PDF  = 60 * 1024 * 1024;
 
@@ -41,22 +45,95 @@ var TRAS_PROXY = process.env.TRAS_PROXY
 
 var SIGLAS = ["CRC","AUT","HEV","FEV","OPF","EPI"];
 
-/* ---------------- base de datos (JSON en disco) ---------------- */
-fs.mkdirSync(DATA_DIR, { recursive:true });
-var db = { lotes:[] };
-try { if(fs.existsSync(DB_FILE)) db = JSON.parse(fs.readFileSync(DB_FILE,"utf8")); } catch(e){}
-if(!db.lotes) db.lotes = [];
-var saving = false, dirty = false;
-function save(){
-  if(saving){ dirty = true; return; }
-  saving = true;
-  var tmp = DB_FILE + ".tmp";
-  fs.writeFile(tmp, JSON.stringify(db,null,2), function(err){
-    if(!err){ try { fs.renameSync(tmp, DB_FILE); } catch(e){} }
-    saving = false;
-    if(dirty){ dirty = false; save(); }
-  });
+/* ================================================================== *
+ * ALMACÉN: la nube si está configurada, o el disco local si no
+ * ------------------------------------------------------------------ *
+ * Todo lo que hay que conservar (db.json, usuarios.json, la bitácora
+ * y los PDF) pasa por estas seis funciones. Así el resto del programa
+ * no necesita saber dónde acaba guardado cada archivo.
+ * ================================================================== */
+var EN_NUBE = nube.activa();
+if(!EN_NUBE) fs.mkdirSync(DATA_DIR, { recursive:true });
+
+function rutaLocal(clave){
+  var abs = path.resolve(DATA_DIR, String(clave).replace(/^\/+/, ""));
+  if(abs !== DATA_DIR && abs.indexOf(DATA_DIR + path.sep) !== 0) throw new Error("Ruta no permitida");
+  return abs;
 }
+
+var almacen = {
+  /* Lee un archivo completo. Devuelve null si no existe. */
+  leer: async function(clave){
+    if(EN_NUBE) return await nube.leer(clave);
+    var f = rutaLocal(clave);
+    if(!fs.existsSync(f)) return null;
+    return fs.readFileSync(f);
+  },
+  /* Escribe (o reemplaza) un archivo completo. */
+  escribir: async function(clave, datos, tipo){
+    var buf = Buffer.isBuffer(datos) ? datos : Buffer.from(String(datos), "utf8");
+    if(EN_NUBE) return await nube.guardar(clave, buf, tipo);
+    var f = rutaLocal(clave);
+    fs.mkdirSync(path.dirname(f), { recursive:true });
+    var tmp = f + ".tmp";
+    fs.writeFileSync(tmp, buf);
+    fs.renameSync(tmp, f);
+    return true;
+  },
+  /* Borra un archivo; no protesta si ya no está. */
+  borrar: async function(clave){
+    if(EN_NUBE) return await nube.borrar(clave);
+    try { fs.unlinkSync(rutaLocal(clave)); } catch(e){}
+    return true;
+  },
+  /* ¿Existe? */
+  existe: async function(clave){
+    if(EN_NUBE) return (await nube.tamano(clave)) >= 0;
+    return fs.existsSync(rutaLocal(clave));
+  },
+  /* Lista claves con ese prefijo: [{clave, bytes}] */
+  listar: async function(prefijo){
+    if(EN_NUBE) return await nube.listar(prefijo);
+    var raiz = rutaLocal(prefijo || ""), salida = [];
+    (function rec(dir){
+      var l = [];
+      try { l = fs.readdirSync(dir, { withFileTypes:true }); } catch(e){ return; }
+      l.forEach(function(e){
+        var abs = path.join(dir, e.name);
+        if(e.isDirectory()) return rec(abs);
+        if(/\.tmp$/.test(e.name)) return;
+        var rel = path.relative(DATA_DIR, abs).split(path.sep).join("/");
+        salida.push({ clave: rel, bytes: fs.statSync(abs).size });
+      });
+    })(raiz);
+    return salida;
+  }
+};
+
+/* ---------------- base de datos (db.json) ---------------- */
+var CLAVE_DB  = "datos/db.json";
+var CLAVE_USU = "datos/usuarios.json";
+var CLAVE_LOG = "datos/bitacora.log";
+var PRE_DOCS  = "documentos/";
+
+var db = { lotes:[] };
+
+/* Escritor con cola: si llegan varios cambios seguidos, se guarda una vez
+ * al final. Evita mandar veinte peticiones a la nube por un mismo clic. */
+function escritorEnCola(nombreClave, obtenerDatos){
+  var guardando = false, pendiente = false;
+  return function guarda(){
+    if(guardando){ pendiente = true; return; }
+    guardando = true;
+    almacen.escribir(nombreClave, JSON.stringify(obtenerDatos(), null, 2), "application/json")
+      .catch(function(e){ console.error("✖ No se pudo guardar " + nombreClave + ": " + e.message); })
+      .then(function(){
+        guardando = false;
+        if(pendiente){ pendiente = false; guarda(); }
+      });
+  };
+}
+var save = escritorEnCola(CLAVE_DB, function(){ return db; });
 
 /* ---------------- saneamiento de rutas ---------------- */
 function limpiaNombre(s){
@@ -69,12 +146,14 @@ function limpiaRuta(s){
   r = r.replace(/\/{2,}/g, "/").replace(/\\{2,}/g, "\\");
   return r.replace(/[\/\\]+$/, "");
 }
-function dirDe(lote){
-  // En el servidor central cada lote es una carpeta con su nombre,
-  // dentro de la carpeta de datos del propio servidor.
-  var abs = path.resolve(DATA_DIR, limpiaNombre(lote.carpeta));
-  if(abs !== DATA_DIR && abs.indexOf(DATA_DIR + path.sep) !== 0) throw new Error("Ruta no permitida");
-  return abs;
+/* Cada lote es una carpeta con su nombre dentro del almacén (nube o disco).
+ * Se devuelve la "clave" del documento, que es simplemente su ruta relativa. */
+function claveDoc(lote, nombre){
+  var carpeta = limpiaNombre(lote.carpeta);
+  if(!carpeta) throw new Error("Carpeta no válida");
+  var arch = limpiaNombre(nombre);
+  if(!arch) throw new Error("Nombre de archivo no válido");
+  return PRE_DOCS + carpeta + "/" + arch;
 }
 function nombreArchivo(sigla, nit, carpeta, sep){
   return limpiaNombre(sigla.toUpperCase() + sep + nit + sep + carpeta) + ".pdf";
@@ -150,16 +229,24 @@ function eq(a,b){
 var ITER = 150000, KEYLEN = 32, DIGEST = "sha512";
 
 var usuarios = { usuarios: [] };
-try {
-  if(fs.existsSync(USU_FILE)) usuarios = JSON.parse(fs.readFileSync(USU_FILE,"utf8"));
-} catch(e){ console.error("usuarios.json ilegible, se ignora: " + e.message); }
-if(!Array.isArray(usuarios.usuarios)) usuarios.usuarios = [];
+var guardaUsuarios = escritorEnCola(CLAVE_USU, function(){ return usuarios; });
+/* Versión que espera a que el guardado termine (comandos de consola). */
+function guardaUsuariosYa(){
+  return almacen.escribir(CLAVE_USU, JSON.stringify(usuarios,null,2), "application/json");
+}
 
-function guardaUsuarios(){
-  var tmp = USU_FILE + ".tmp";
-  fs.writeFileSync(tmp, JSON.stringify(usuarios,null,2), { mode:0o600 });
-  fs.renameSync(tmp, USU_FILE);
-  try { fs.chmodSync(USU_FILE, 0o600); } catch(e){}
+/* Carga db.json y usuarios.json del almacén antes de abrir el servidor. */
+async function cargarDatos(){
+  try {
+    var b = await almacen.leer(CLAVE_DB);
+    if(b) db = JSON.parse(b.toString("utf8"));
+  } catch(e){ console.error("No se pudo leer el listado de carpetas: " + e.message); }
+  if(!db || !Array.isArray(db.lotes)) db = { lotes: [] };
+  try {
+    var c = await almacen.leer(CLAVE_USU);
+    if(c) usuarios = JSON.parse(c.toString("utf8"));
+  } catch(e){ console.error("No se pudo leer la lista de usuarios: " + e.message); }
+  if(!usuarios || !Array.isArray(usuarios.usuarios)) usuarios = { usuarios: [] };
 }
 function normUsuario(s){
   return String(s == null ? "" : s).trim().toLowerCase().replace(/[^a-z0-9._-]/g,"");
@@ -221,17 +308,39 @@ function hayUsuarios(){
   return usuarios.usuarios.some(function(u){ return u.activo; });
 }
 
-/* --- primer arranque: sembrar usuario desde variables de entorno --- */
-if(!usuarios.usuarios.length && PASS){
-  var sembrado = creaUsuario(USER, PASS, "admin", true);
-  if(sembrado.error) console.error("No se pudo crear el usuario inicial: " + sembrado.error);
-  else console.log('Usuario inicial creado: "' + sembrado.usuario.usuario + '" (administrador).');
-}
-
 /* ---------------- bitácora de accesos ---------------- */
+/* Se acumula en memoria y se vuelca cada pocos segundos, para no escribir
+ * en la nube una vez por línea. También se vuelca al apagar el servicio. */
+var logBuffer = "", logCargado = false, logGuardando = false;
 function bitacora(texto){
-  fs.appendFile(LOG_FILE, new Date().toISOString() + "  " + texto + "\n", function(){});
+  logBuffer += new Date().toISOString() + "  " + texto + "\n";
 }
+async function vuelcaBitacora(){
+  if(logGuardando || !logBuffer) return;
+  logGuardando = true;
+  var trozo = logBuffer; logBuffer = "";
+  try {
+    var previo = null;
+    try { previo = await almacen.leer(CLAVE_LOG); } catch(e){}
+    var texto = (previo ? previo.toString("utf8") : "") + trozo;
+    /* La bitácora se recorta a las últimas 5.000 líneas: información
+       suficiente para auditoría sin engordar el almacenamiento. */
+    var lineas = texto.split("\n");
+    if(lineas.length > 5000) texto = lineas.slice(lineas.length - 5000).join("\n");
+    await almacen.escribir(CLAVE_LOG, texto, "text/plain; charset=utf-8");
+    logCargado = true;
+  } catch(e){
+    logBuffer = trozo + logBuffer;    // se reintenta en el siguiente turno
+  }
+  logGuardando = false;
+}
+setInterval(function(){ vuelcaBitacora(); }, 15000).unref();
+["SIGINT","SIGTERM"].forEach(function(s){
+  process.on(s, function(){
+    vuelcaBitacora().then(function(){ process.exit(0); }, function(){ process.exit(0); });
+    setTimeout(function(){ process.exit(0); }, 4000);
+  });
+});
 
 /* ---------------- intentos fallidos y bloqueo temporal ---------------- */
 var MAX_INTENTOS = 5, BLOQUEO_MS = 5 * 60 * 1000;
@@ -374,8 +483,9 @@ function estatico(req,res,url){
  *   node server.js borrar-usuario juan
  * ================================================================== */
 var cmd = (process.argv[2] || "").toLowerCase();
-if(cmd){
+async function comandosConsola(){
   var a1 = process.argv[3], a2 = process.argv[4], a3 = process.argv[5];
+  var fin = async function(code){ try { await guardaUsuariosYa(); } catch(e){} process.exit(code); };
   var pad = function(s,n){ s = String(s); return s + new Array(Math.max(2, n - s.length + 1)).join(" "); };
   if(cmd === "usuarios" || cmd === "lista"){
     if(!usuarios.usuarios.length) console.log("No hay usuarios creados.");
@@ -386,44 +496,42 @@ if(cmd){
                     (x.ultimo ? new Date(x.ultimo).toLocaleString() : "nunca"));
       });
     }
-    process.exit(0);
+    return fin(0);
   }
   if(cmd === "nuevo-usuario"){
-    if(!a1 || !a2){ console.log("Uso: node server.js nuevo-usuario <usuario> <clave> [admin|auditor]"); process.exit(1); }
+    if(!a1 || !a2){ console.log("Uso: node server.js nuevo-usuario <usuario> <clave> [admin|auditor]"); return fin(1); }
     var r1 = creaUsuario(a1, a2, a3 || "auditor", false);
     console.log(r1.error ? "\u2716 " + r1.error : '\u2714 Usuario "' + r1.usuario.usuario + '" creado (' + r1.usuario.rol + ").");
-    process.exit(r1.error ? 1 : 0);
+    return fin(r1.error ? 1 : 0);
   }
   if(cmd === "clave"){
-    if(!a1 || !a2){ console.log("Uso: node server.js clave <usuario> <nueva-clave>"); process.exit(1); }
+    if(!a1 || !a2){ console.log("Uso: node server.js clave <usuario> <nueva-clave>"); return fin(1); }
     var r2 = cambiaClave(a1, a2);
     console.log(r2.error ? "\u2716 " + r2.error : "\u2714 Contrase\u00f1a actualizada para " + normUsuario(a1) + ".");
-    process.exit(r2.error ? 1 : 0);
+    return fin(r2.error ? 1 : 0);
   }
   if(cmd === "activar" || cmd === "desactivar"){
     var u4 = buscaUsuario(a1);
-    if(!u4){ console.log("\u2716 Ese usuario no existe."); process.exit(1); }
+    if(!u4){ console.log("\u2716 Ese usuario no existe."); return fin(1); }
     u4.activo = (cmd === "activar");
     if(!u4.activo) cierraSesionesDe(u4.usuario);
-    guardaUsuarios();
     console.log("\u2714 " + u4.usuario + " ahora est\u00e1 " + (u4.activo ? "activo" : "inactivo") + ".");
-    process.exit(0);
+    return fin(0);
   }
   if(cmd === "borrar-usuario"){
     var n5 = normUsuario(a1), antes = usuarios.usuarios.length;
     usuarios.usuarios = usuarios.usuarios.filter(function(x){ return x.usuario !== n5; });
-    if(usuarios.usuarios.length === antes){ console.log("\u2716 Ese usuario no existe."); process.exit(1); }
+    if(usuarios.usuarios.length === antes){ console.log("\u2716 Ese usuario no existe."); return fin(1); }
     cierraSesionesDe(n5);
-    guardaUsuarios();
     console.log("\u2714 Usuario " + n5 + " eliminado.");
-    process.exit(0);
+    return fin(0);
   }
   console.log("Comandos disponibles: usuarios | nuevo-usuario | clave | activar | desactivar | borrar-usuario");
-  process.exit(1);
+  return fin(1);
 }
 
 /* ---------------- servidor ---------------- */
-http.createServer(async function(req,res){
+var servidor = http.createServer(async function(req,res){
   var u = new URL(req.url, "http://x");
   var p = decodeURIComponent(u.pathname);
 
@@ -433,7 +541,7 @@ http.createServer(async function(req,res){
       ok:true,
       auth: hayUsuarios(),
       instalar: !hayUsuarios(),
-      nube: true,
+      nube: nube.describe(),
       sesion: s0 ? { usuario:s0.usuario, rol:s0.rol } : null
     });
   }
@@ -599,13 +707,9 @@ http.createServer(async function(req,res){
       var ya = db.lotes.filter(function(l){
         return l.carpeta.toLowerCase() === carpeta.toLowerCase() && l.nit === nit;
       })[0];
-      if(ya){
-        fs.mkdirSync(dirDe(ya), { recursive:true });
-        return json(res,200,{ lote: pub(ya), existia:true });
-      }
+      if(ya) return json(res,200,{ lote: pub(ya), existia:true });
       var lote = { id:"L"+Date.now()+crypto.randomBytes(3).toString("hex"),
                    ruta:ruta, carpeta:carpeta, nit:nit, sep:sep, creado:Date.now(), docs:{} };
-      fs.mkdirSync(dirDe(lote), { recursive:true });
       db.lotes.push(lote); save();
       return json(res,201,{ lote: pub(lote), existia:false });
     }
@@ -623,9 +727,7 @@ http.createServer(async function(req,res){
         if(!data.length) return json(res,400,{ error:"Archivo vacío" });
         if(data.slice(0,5).toString("latin1") !== "%PDF-") return json(res,400,{ error:"El archivo no es un PDF válido" });
         var nombre = nombreArchivo(sigla, lote2.nit, lote2.carpeta, lote2.sep);
-        var dir = dirDe(lote2);
-        fs.mkdirSync(dir, { recursive:true });
-        fs.writeFileSync(path.join(dir, nombre), data);
+        await almacen.escribir(claveDoc(lote2, nombre), data, "application/pdf");
         var orig = "";
         try { orig = decodeURIComponent(req.headers["x-original-name"] || "").slice(0,180); } catch(e){}
         var partes = parseInt(req.headers["x-partes"] || "1", 10);
@@ -638,15 +740,15 @@ http.createServer(async function(req,res){
       if(req.method === "GET"){
         var d = lote2.docs[sigla];
         if(!d) return json(res,404,{ error:"Documento no cargado" });
-        var f = path.join(dirDe(lote2), d.nombre);
-        if(!fs.existsSync(f)) return json(res,404,{ error:"Archivo no encontrado en el servidor" });
+        var buf2 = await almacen.leer(claveDoc(lote2, d.nombre));
+        if(!buf2) return json(res,404,{ error:"Archivo no encontrado en el almac\u00e9n" });
         res.writeHead(200, {
           "Content-Type":"application/pdf",
-          "Content-Length":fs.statSync(f).size,
+          "Content-Length":buf2.length,
           "Content-Disposition":'attachment; filename="'+d.nombre.replace(/"/g,"")+'"',
           "X-Content-Type-Options":"nosniff"
         });
-        return fs.createReadStream(f).pipe(res);
+        return res.end(buf2);
       }
     }
 
@@ -657,18 +759,18 @@ http.createServer(async function(req,res){
       db.lotes.forEach(function(l,i){ if(l.id === dl[1]) idx = i; });
       if(idx < 0) return json(res,404,{ error:"Lote no encontrado" });
       var loteD = db.lotes[idx];
-      var dirD = dirDe(loteD);
-      // Solo se borra la carpeta del lote si ningún otro lote la comparte.
+      // Solo se vacía la carpeta completa si ningún otro lote la comparte.
       var compartida = db.lotes.some(function(l){
         return l.id !== loteD.id && limpiaNombre(l.carpeta).toLowerCase() === limpiaNombre(loteD.carpeta).toLowerCase();
       });
-      if(compartida){
-        Object.keys(loteD.docs || {}).forEach(function(sg){
-          try { fs.unlinkSync(path.join(dirD, loteD.docs[sg].nombre)); } catch(e){}
-        });
-      } else {
-        try { fs.rmSync(dirD, { recursive:true, force:true }); } catch(e){}
+      var claves = Object.keys(loteD.docs || {}).map(function(sg){ return claveDoc(loteD, loteD.docs[sg].nombre); });
+      if(!compartida){
+        try {
+          var todo = await almacen.listar(PRE_DOCS + limpiaNombre(loteD.carpeta) + "/");
+          todo.forEach(function(x){ if(claves.indexOf(x.clave) < 0) claves.push(x.clave); });
+        } catch(e){}
       }
+      for(var ci=0; ci<claves.length; ci++){ try { await almacen.borrar(claves[ci]); } catch(e){} }
       db.lotes.splice(idx,1); save();
       return json(res,200,{ ok:true, eliminado: loteD.carpeta });
     }
@@ -685,14 +787,16 @@ http.createServer(async function(req,res){
         veces[k] = (veces[k] || 0) + 1;
       });
       var itemsM = [];
-      sel.forEach(function(l){
+      for(var si=0; si<sel.length; si++){
+        var l = sel[si];
         var base = veces[l.carpeta.toLowerCase()] > 1 ? l.carpeta + "_" + l.nit : l.carpeta;
-        var dl2 = dirDe(l);
-        Object.keys(l.docs || {}).forEach(function(sg){
-          var f = path.join(dl2, l.docs[sg].nombre);
-          if(fs.existsSync(f)) itemsM.push({ path: base + "/" + l.docs[sg].nombre, data: fs.readFileSync(f) });
-        });
-      });
+        var sgs = Object.keys(l.docs || {});
+        for(var sj=0; sj<sgs.length; sj++){
+          var bufX = null;
+          try { bufX = await almacen.leer(claveDoc(l, l.docs[sgs[sj]].nombre)); } catch(e){}
+          if(bufX) itemsM.push({ path: base + "/" + l.docs[sgs[sj]].nombre, data: bufX });
+        }
+      }
       if(!itemsM.length) return json(res,404,{ error:"Los lotes seleccionados no tienen documentos" });
       var bufM = zipBuffer(itemsM);
       var d0 = new Date(), pp = function(n){ return (n<10?"0":"")+n; };
@@ -711,11 +815,12 @@ http.createServer(async function(req,res){
     if(z && req.method === "GET"){
       var lote3 = db.lotes.filter(function(l){ return l.id === z[1]; })[0];
       if(!lote3) return json(res,404,{ error:"Lote no encontrado" });
-      var dir3 = dirDe(lote3), items = [];
-      Object.keys(lote3.docs).forEach(function(sg){
-        var f = path.join(dir3, lote3.docs[sg].nombre);
-        if(fs.existsSync(f)) items.push({ path: lote3.carpeta + "/" + lote3.docs[sg].nombre, data: fs.readFileSync(f) });
-      });
+      var items = [], sgs3 = Object.keys(lote3.docs || {});
+      for(var k3=0; k3<sgs3.length; k3++){
+        var b3 = null;
+        try { b3 = await almacen.leer(claveDoc(lote3, lote3.docs[sgs3[k3]].nombre)); } catch(e){}
+        if(b3) items.push({ path: lote3.carpeta + "/" + lote3.docs[sgs3[k3]].nombre, data: b3 });
+      }
       if(!items.length) return json(res,404,{ error:"El lote no tiene documentos" });
       var buf = zipBuffer(items);
       var zn = (lote3.carpeta + "_" + lote3.nit + ".zip").replace(/[^\w.\-]/g,"_");
@@ -727,21 +832,95 @@ http.createServer(async function(req,res){
       return res.end(buf);
     }
 
+    /* copia de seguridad completa: todos los PDF + el inventario */
+    if(p === "/api/copia" && req.method === "GET"){
+      if(!soloAdmin(req,res)) return;
+      var itemsC = [], falt = 0;
+      for(var li=0; li<db.lotes.length; li++){
+        var lc = db.lotes[li], sgc = Object.keys(lc.docs || {});
+        for(var lj=0; lj<sgc.length; lj++){
+          var bc = null;
+          try { bc = await almacen.leer(claveDoc(lc, lc.docs[sgc[lj]].nombre)); } catch(e){}
+          if(bc) itemsC.push({ path: "documentos/" + limpiaNombre(lc.carpeta) + "/" + lc.docs[sgc[lj]].nombre, data: bc });
+          else falt++;
+        }
+      }
+      itemsC.push({ path:"inventario.json", data: Buffer.from(JSON.stringify(db, null, 2), "utf8") });
+      /* Resumen legible del contenido de la copia. */
+      var lineas = ["Copia de seguridad del Sistema de Gesti\u00f3n Documental",
+                    "Fecha: " + new Date().toLocaleString(),
+                    "Carpetas registradas: " + db.lotes.length,
+                    "Documentos incluidos: " + (itemsC.length - 1),
+                    "Documentos no encontrados: " + falt,
+                    "",
+                    "Contiene datos personales de pacientes: gu\u00e1rdala en un lugar seguro",
+                    "y no la compartas por canales p\u00fablicos (Ley 1581 de 2012)."];
+      itemsC.push({ path:"LEEME-copia.txt", data: Buffer.from(lineas.join("\n"), "utf8") });
+      var bufC = zipBuffer(itemsC);
+      var dC = new Date(), ppC = function(n){ return (n<10?"0":"")+n; };
+      var znC = "Copia_completa_" + dC.getFullYear() + ppC(dC.getMonth()+1) + ppC(dC.getDate()) +
+                "_" + ppC(dC.getHours()) + ppC(dC.getMinutes()) + ".zip";
+      bitacora("COPIA      completa (" + (itemsC.length-2) + " PDF) por " + (req.sesion && req.sesion.usuario));
+      res.writeHead(200, {
+        "Content-Type":"application/zip",
+        "Content-Length":bufC.length,
+        "Content-Disposition":'attachment; filename="'+znC+'"'
+      });
+      return res.end(bufC);
+    }
+
     if(p.indexOf("/api/") === 0) return json(res,404,{ error:"Ruta no válida" });
     return estatico(req,res,p);
   }catch(err){
     return json(res,500,{ error: err && err.message ? err.message : "Error interno" });
   }
-}).listen(PORT, function(){
-  console.log("Servidor listo en el puerto " + PORT + (TRAS_PROXY ? " (detrás de proxy/HTTPS)" : " -> http://localhost:" + PORT));
-  console.log("Carpetas y PDFs se guardan en: " + DATA_DIR);
-  if(!hayUsuarios()){
-    console.log("\n⚠  Todavía no hay ningún usuario creado: el acceso está BLOQUEADO.");
-    console.log("   Abre la app en el navegador y usa \"Crear el primer administrador\"");
-    console.log("   para registrarlo. También puedes hacerlo por consola con:");
-    console.log("   node server.js nuevo-usuario admin TuClave1234 admin\n");
-  } else {
-    console.log("Acceso protegido: " + usuarios.usuarios.length + " usuario(s) registrado(s).");
-    console.log("La sesión se cierra tras " + (SES_MS/3600000) + " h de inactividad.");
-  }
 });
+
+/* ================================================================== *
+ * ARRANQUE
+ * Primero se leen los datos guardados (nube o disco) y solo después se
+ * abre el servidor o se ejecuta un comando de consola.
+ * ================================================================== */
+(async function arrancar(){
+  if(EN_NUBE){
+    var ok = await nube.comprobar();
+    if(!ok.ok){
+      console.error("\u2716 No se pudo conectar con el almacenamiento en la nube: " + ok.error);
+      console.error("  Revisa las variables R2_* y vuelve a desplegar. El servicio no arranca");
+      console.error("  para no guardar datos que luego se perder\u00edan.");
+      process.exit(1);
+    }
+  }
+  await cargarDatos();
+
+  /* primer arranque: sembrar usuario desde variables de entorno */
+  if(!usuarios.usuarios.length && PASS){
+    var sembrado = creaUsuario(USER, PASS, "admin", true);
+    if(sembrado.error) console.error("No se pudo crear el usuario inicial: " + sembrado.error);
+    else {
+      console.log('Usuario inicial creado: "' + sembrado.usuario.usuario + '" (administrador).');
+      try { await guardaUsuariosYa(); } catch(e){}
+    }
+  }
+
+  if(cmd) return comandosConsola();
+
+  servidor.listen(PORT, function(){
+    console.log("Servidor listo en el puerto " + PORT + (TRAS_PROXY ? " (detr\u00e1s de proxy/HTTPS)" : " -> http://localhost:" + PORT));
+    console.log("Los datos se guardan en: " + nube.describe().detalle);
+    if(!EN_NUBE){
+      console.log("\u26a0  Aviso: sin almacenamiento en la nube configurado, en servidores");
+      console.log("   gratuitos (Render y similares) los archivos pueden perderse al reiniciar.");
+      console.log("   Configura las variables R2_* para conservarlos (ver LEEME.md).");
+    }
+    if(!hayUsuarios()){
+      console.log("\n\u26a0  Todav\u00eda no hay ning\u00fan usuario creado: el acceso est\u00e1 BLOQUEADO.");
+      console.log("   Abre la app en el navegador y usa \"Crear el primer administrador\"");
+      console.log("   para registrarlo. Tambi\u00e9n puedes hacerlo por consola con:");
+      console.log("   node server.js nuevo-usuario admin TuClave1234 admin\n");
+    } else {
+      console.log("Acceso protegido: " + usuarios.usuarios.length + " usuario(s) registrado(s).");
+      console.log("La sesi\u00f3n se cierra tras " + (SES_MS/3600000) + " h de inactividad.");
+    }
+  });
+})();
