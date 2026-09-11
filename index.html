@@ -159,6 +159,15 @@
   .fuerza.m i{width:55%;background:var(--warn)}
   .fuerza.b i{width:22%;background:var(--err)}
   .fuerza.f i{width:100%;background:var(--ok)}
+  /* Modal Anexar/Reemplazar */
+  .modal-overlay{position:fixed;inset:0;background:rgba(5,9,16,.92);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px}
+  .modal-overlay[hidden]{display:none}
+  .modal-box{background:var(--panel);border:1px solid var(--line2);border-radius:var(--r);padding:28px 32px;max-width:520px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+  .modal-title{font-size:18px;font-weight:700;color:var(--txt);margin-bottom:8px}
+  .modal-text{font-size:13.5px;color:var(--dim);margin-bottom:18px;line-height:1.6}
+  .modal-text strong{color:#90e0ef}
+  .modal-actions{display:flex;gap:12px;flex-wrap:wrap}
+  .modal-actions button{flex:1;min-width:140px}
 </style>
 </head>
 <body>
@@ -431,6 +440,19 @@
       </form>
       <div class="msg" id="msgUsr"></div>
       <div class="hint">Cada persona puede cambiar su propia contraseña desde el botón “Cambiar contraseña”. Si alguien la olvida, usa “Restablecer clave” y entrégasela por un medio seguro.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Anexar/Reemplazar -->
+<div id="modalRA" class="modal-overlay" hidden>
+  <div class="modal-box">
+    <div class="modal-title">⚠ ¿Qué desea hacer?</div>
+    <div class="modal-text" id="modalRA-text"></div>
+    <div class="modal-actions">
+      <button class="go" id="modalRA-add" type="button">⊕ Anexar</button>
+      <button id="modalRA-rep" type="button" style="background:#8e2f3c">↻ Reemplazar</button>
+      <button class="ghost" id="modalRA-cancel" type="button">✕ Cancelar</button>
     </div>
   </div>
 </div>

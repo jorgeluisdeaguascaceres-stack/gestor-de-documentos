@@ -750,6 +750,15 @@ var servidor = http.createServer(async function(req,res){
         });
         return res.end(buf2);
       }
+      /* eliminar un documento individual de un lote (para Reemplazar) */
+      if(req.method === "DELETE"){
+        var docDel = lote2.docs[sigla];
+        if(!docDel) return json(res,404,{ error:"Documento no encontrado" });
+        try { await almacen.borrar(claveDoc(lote2, docDel.nombre)); } catch(e){}
+        delete lote2.docs[sigla];
+        save();
+        return json(res,200,{ ok:true, lote: pub(lote2) });
+      }
     }
 
     /* eliminar un lote completo (registro + carpeta con sus PDF) */

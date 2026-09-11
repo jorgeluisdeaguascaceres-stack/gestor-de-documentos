@@ -624,16 +624,35 @@ function blobDoc(lote, sigla){
 async function unirPendientes(sigla, nombreFinal){
   var files = pending[sigla] || [];
   if(!files.length) throw new Error("no hay archivos cargados");
-  var originales = files.map(function(f){ return f.name; }).join(" + ");
-  if(files.length === 1){
-    return { file: files[0], partes:1, paginas: 0, original: originales };
+
+  /* Si hay documento guardado en la casilla (Anexar), incluirlo en la fusión */
+  var yaGuardado = activo && activo.docs && activo.docs[sigla];
+  var todos = [];
+  if(yaGuardado){
+    try{
+      var blobGuardado = await blobDoc(activo, sigla);
+      if(blobGuardado){
+        todos.push({ name: yaGuardado.nombre || (sigla + ".pdf"), blob: blobGuardado, isSaved: true });
+      }
+    } catch(e){ /* si no se puede leer, se pierde el anterior */ }
+  }
+  files.forEach(function(f){ todos.push({ name: f.name, file: f, isSaved: false }); });
+
+  var originales = todos.map(function(f){ return f.name; }).join(" + ");
+  if(todos.length === 1){
+    var unico = todos[0].blob || todos[0].file;
+    return { file: unico instanceof Blob ? conNombre(new Uint8Array(await unico.arrayBuffer()), nombreFinal) : unico, 
+             partes: 1, paginas: 0, original: originales, fueAnexado: !!yaGuardado };
   }
   if(!window.PDFMerge) throw new Error("no se pudo cargar el motor de unión de PDF");
   var buffers = [];
-  for(var i=0;i<files.length;i++) buffers.push(new Uint8Array(await files[i].arrayBuffer()));
-  var r = window.PDFMerge.merge(buffers, files.map(function(f){ return f.name; }));
-  return { file: conNombre(r.bytes, nombreFinal), partes: files.length,
-           paginas: r.paginas, original: originales };
+  for(var i=0;i<todos.length;i++){
+    var src = todos[i].blob || todos[i].file;
+    buffers.push(new Uint8Array(await src.arrayBuffer()));
+  }
+  var r = window.PDFMerge.merge(buffers, todos.map(function(f){ return f.name; }));
+  return { file: conNombre(r.bytes, nombreFinal), partes: todos.length,
+           paginas: r.paginas, original: originales, fueAnexado: !!yaGuardado };
 }
 
 /* ------------------------------------------------------------------ *
@@ -647,7 +666,7 @@ function vistaPrevia(){
 function textoZona(sigla){
   var ya = activo && activo.docs && activo.docs[sigla];
   return ya
-    ? "Documento guardado · añade PDF para reemplazarlo"
+    ? "Documento guardado · arrastra PDF para anexar o reemplazar"
     : "Arrastra uno o varios PDF aquí, o haz clic para buscarlos";
 }
 
@@ -766,16 +785,57 @@ function pintarCajas(){
   });
 }
 
+/* --- Modal Anexar / Reemplazar --- */
+var _pendingModal = null; // { sigla, arr }
+
+function mostrarModalAR(sigla, arr){
+  var ya = activo && activo.docs && activo.docs[sigla];
+  var info = ya ? ya.nombre : sigla;
+  var incoming = arr.length === 1 ? "1 archivo nuevo" : arr.length + " archivos nuevos";
+  var txt = "La casilla <strong>" + sigla + "</strong> ya tiene un documento guardado (<strong>" + info + "</strong>).<br>" +
+    "Estás intentando agregar " + incoming + ".<br><br>" +
+    "<strong>Anexar</strong>: los nuevos PDF se juntan con el documento existente (se fusionan al procesar).<br>" +
+    "<strong>Reemplazar</strong>: se elimina el documento actual y se queda solo el nuevo.";
+  $("modalRA-text").innerHTML = txt;
+  _pendingModal = { sigla: sigla, arr: arr };
+  $("modalRA").hidden = false;
+  document.body.classList.add("noscroll");
+}
+
+function cerrarModalAR(){
+  $("modalRA").hidden = true;
+  document.body.classList.remove("noscroll");
+  _pendingModal = null;
+}
+
+/* --- Fin modal --- */
+
 function tomar(sigla, lista){
   var st = $("st-" + sigla);
   var añadidos = 0, rechazados = [];
-  if(!pending[sigla]) pending[sigla] = [];
+  var validos = [];
   for(var i=0;i<lista.length;i++){
     var f = lista[i];
     if(!esPdf(f)){ rechazados.push(f.name); continue; }
-    pending[sigla].push(f);
+    validos.push(f);
     añadidos++;
   }
+  if(!validos.length){
+    st.textContent = "Solo se aceptan archivos PDF";
+    st.className = "state err";
+    return;
+  }
+
+  /* Si la casilla ya tiene documento guardado, preguntar Anexar o Reemplazar */
+  var yaGuardado = activo && activo.docs && activo.docs[sigla];
+  if(yaGuardado){
+    mostrarModalAR(sigla, validos);
+    return;
+  }
+
+  /* Si ya hay PDF en cola, simplemente se agregan (comportamiento normal) */
+  if(!pending[sigla]) pending[sigla] = [];
+  validos.forEach(function(f){ pending[sigla].push(f); });
   if(!pending[sigla].length) delete pending[sigla];
 
   var n = (pending[sigla] || []).length;
@@ -785,10 +845,7 @@ function tomar(sigla, lista){
     ? (n === 1 ? "1 PDF en cola · clic para añadir más" : n + " PDF en cola · clic para añadir más")
     : textoZona(sigla);
 
-  if(rechazados.length && !añadidos){
-    st.textContent = "Solo se aceptan archivos PDF";
-    st.className = "state err";
-  } else if(rechazados.length){
+  if(rechazados.length){
     st.textContent = "Listo para procesar · se ignoraron " + rechazados.length + " archivo(s) que no son PDF";
     st.className = "state err";
   } else if(n){
@@ -1761,6 +1818,61 @@ async function detectar(){
   $("modeTxt").textContent = "Modo local · datos en este navegador";
   configurarDestino();
 }
+
+/* --- Botones del modal Anexar / Reemplazar --- */
+$("modalRA-add").addEventListener("click", function(){
+  var p = _pendingModal; if(!p) return;
+  $("modalRA").hidden = true; document.body.classList.remove("noscroll");
+  /* Anexar: agregar los nuevos PDF a la cola, se fusionarán con el existente al procesar */
+  if(!pending[p.sigla]) pending[p.sigla] = [];
+  p.arr.forEach(function(f){ pending[p.sigla].push(f); });
+  _pendingModal = null;
+  var n = (pending[p.sigla] || []).length;
+  var zone = $("zone-" + p.sigla);
+  zone.classList.toggle("has", n > 0);
+  zone.textContent = n + " PDF en cola · clic para añadir más";
+  var st = $("st-" + p.sigla);
+  st.textContent = "Listo: se unirán " + n + " PDF con el documento guardado";
+  st.className = "state";
+  pintarLista(p.sigla); refrescarObjetivos(); botones();
+});
+
+$("modalRA-rep").addEventListener("click", async function(){
+  var p = _pendingModal; if(!p) return;
+  $("modalRA").hidden = true; document.body.classList.remove("noscroll");
+  /* Reemplazar: eliminar el documento guardado y poner solo los nuevos */
+  if(activo && activo.docs && activo.docs[p.sigla]){
+    try {
+      /* Eliminar el archivo guardado del almacenamiento */
+      if(MODE === "api"){
+        await fetch("api/lotes/" + encodeURIComponent(activo.id) + "/docs/" + encodeURIComponent(p.sigla),
+          { method:"DELETE", credentials:"same-origin" });
+      } else {
+        await IDB.delF([activo.id + "|" + p.sigla]);
+      }
+      delete activo.docs[p.sigla];
+      await IDB.put(activo); /* actualizar metadatos del lote */
+    } catch(e){ /* si falla la eliminación, continuar de todas formas */ }
+  }
+  pending[p.sigla] = p.arr.slice();
+  _pendingModal = null;
+  var n = pending[p.sigla].length;
+  var zone = $("zone-" + p.sigla);
+  zone.classList.toggle("has", n > 0);
+  zone.textContent = n + " PDF en cola · clic para añadir más";
+  var st = $("st-" + p.sigla);
+  st.textContent = n === 1 ? "Listo para procesar" : "Listo: se unirán " + n + " PDF en uno solo";
+  st.className = "state";
+  $("box-" + p.sigla).classList.remove("done");
+  pintarLista(p.sigla); refrescarObjetivos(); botones(); pintarActivo();
+});
+
+$("modalRA-cancel").addEventListener("click", cerrarModalAR);
+
+$("modalRA").addEventListener("click", function(e){
+  if(e.target === this) cerrarModalAR();
+});
+/* --- Fin botones modal --- */
 
 pintarCajas();
 vistaPrevia();
