@@ -990,7 +990,6 @@ async function hacerCrear(ruta, carpeta, nit, paciente){
     var r = await Store.crear({ ruta:ruta, carpeta:carpeta, nit:nit, sep:$("sep").value, paciente:paciente });
     activo = r.lote;
     pending = {};
-    if($("paciente")) $("paciente").value = paciente;
     refrescarCajas();
     say($("msgA"), r.existia
       ? "Esa carpeta ya existía para el NIT indicado: se reabrió para seguir cargando documentos."
@@ -1045,26 +1044,18 @@ $("btnCrear").addEventListener("click", async function(){
   var ruta = MODE === "api" ? "" : limpiaRuta($("ruta").value);
   var carpeta = limpia($("carpeta").value);
   var nit = limpia($("nit").value);
-  var paciente = limpia($("paciente").value);
   $("carpeta").classList.toggle("bad", !carpeta);
   $("nit").classList.toggle("bad", !/^\d{5,15}$/.test(nit));
   if(!carpeta){ say($("msgA"), "Escribe el nombre de la carpeta o lote.", "err"); return; }
   if(!/^\d{5,15}$/.test(nit)){ say($("msgA"), "El NIT de la IPS debe ser numérico (entre 5 y 15 dígitos).", "err"); return; }
-  /* El documento del paciente es obligatorio: si falta o no es válido,
-     sale un cuadro flotante que obliga a digitarlo antes de guardar. */
-  if(!pacienteValido(paciente)){
-    $("paciente").classList.add("bad");
-    abrirModalPac(ruta, carpeta, nit);
-    return;
-  }
-  $("paciente").classList.remove("bad");
-  await hacerCrear(ruta, carpeta, nit, paciente);
+  /* Cada carpeta tiene un documento distinto: siempre sale el cuadro
+     flotante para digitar el documento del paciente antes de guardar. */
+  abrirModalPac(ruta, carpeta, nit);
 });
 
 $("btnNuevo").addEventListener("click", function(){
   activo = null; pending = {};
   $("carpeta").value = ""; $("carpeta").classList.remove("bad"); $("nit").classList.remove("bad");
-  if($("paciente")) $("paciente").value = "";
   refrescarCajas();
   say($("msgA"), ""); say($("msgP"), "");
   pintarActivo(); refrescarObjetivos(); botones(); vistaPrevia();
@@ -1801,7 +1792,6 @@ function pintarTabla(){
       activo = l; pending = {};
       $("ruta").value = l.ruta; $("carpeta").value = l.carpeta;
       $("nit").value = l.nit; $("sep").value = l.sep;
-      if($("paciente")) $("paciente").value = l.paciente || "";
       refrescarCajas();
       verPantalla("A");
       vistaPrevia(); pintarActivo(); refrescarObjetivos(); botones();
@@ -2231,7 +2221,7 @@ $("modalPac-input").addEventListener("keydown", function(e){
   if(e.key === "Enter"){ e.preventDefault(); confirmarModalPac(); }
 });
 /* Al dar Enter en los campos de la Sección 1 se intenta guardar la carpeta. */
-["carpeta","nit","paciente"].forEach(function(id){
+["carpeta","nit"].forEach(function(id){
   $(id).addEventListener("keydown", function(e){
     if(e.key === "Enter"){ e.preventDefault(); $("btnCrear").click(); }
   });
