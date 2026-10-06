@@ -1273,6 +1273,229 @@ async function bajarDoc(lote, sigla, msgEl){
 }
 
 /* ------------------------------------------------------------------ *
+ * Eliminación masiva desde un Excel (.xlsx) o CSV
+ *   La primera columna debe traer los nombres de carpeta (lote) a borrar.
+ *   Antes de eliminar se descarga SIEMPRE un ZIP de respaldo.
+ * ------------------------------------------------------------------ */
+function desescaparXml(s){
+  return String(s)
+    .replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+    .replace(/&#(\d+);/g, function(_, n){ return String.fromCharCode(parseInt(n, 10)); })
+    .replace(/&amp;/g, "&");
+}
+
+/* Descompresión DEFLATE (sin librerías) usando la API del navegador. */
+async function inflarRaw(bytes){
+  if(typeof DecompressionStream === "undefined")
+    throw new Error("este navegador no puede abrir .xlsx; usa Chrome o Edge actualizado, o sube el listado en formato CSV");
+  var ds = new DecompressionStream("deflate-raw");
+  var w = ds.writable.getWriter();
+  w.write(bytes); w.close();
+  var trozos = [], rd = ds.readable.getReader();
+  while(true){ var r = await rd.read(); if(r.done) break; trozos.push(r.value); }
+  var total = trozos.reduce(function(a, c){ return a + c.length; }, 0);
+  var out = new Uint8Array(total), off = 0;
+  trozos.forEach(function(c){ out.set(c, off); off += c.length; });
+  return out;
+}
+
+/* Lee el directorio central de un ZIP (un .xlsx es un ZIP). */
+function leerZipEntradas(buf){
+  var dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+  var i = buf.length - 22;
+  for(; i >= 0; i--){ if(dv.getUint32(i, true) === 0x06054b50) break; }
+  if(i < 0) throw new Error("el archivo no parece un Excel válido");
+  var cdOff = dv.getUint32(i + 16, true);
+  var cdCount = dv.getUint16(i + 10, true);
+  var ent = {}, p = cdOff, dec = new TextDecoder();
+  for(var n = 0; n < cdCount; n++){
+    if(dv.getUint32(p, true) !== 0x02014b50) break;
+    var metodo = dv.getUint16(p + 10, true);
+    var compSize = dv.getUint32(p + 20, true);
+    var nameLen = dv.getUint16(p + 28, true);
+    var extraLen = dv.getUint16(p + 30, true);
+    var commentLen = dv.getUint16(p + 32, true);
+    var localOff = dv.getUint32(p + 42, true);
+    var nombre = dec.decode(buf.subarray(p + 46, p + 46 + nameLen));
+    ent[nombre] = { metodo: metodo, compSize: compSize, localOff: localOff };
+    p += 46 + nameLen + extraLen + commentLen;
+  }
+  return ent;
+}
+
+async function extraerEntrada(buf, e){
+  var dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+  var lo = e.localOff;
+  var nameLen = dv.getUint16(lo + 26, true);
+  var extraLen = dv.getUint16(lo + 28, true);
+  var ini = lo + 30 + nameLen + extraLen;
+  var comp = buf.subarray(ini, ini + e.compSize);
+  if(e.metodo === 0) return comp;              // sin comprimir
+  if(e.metodo === 8) return await inflarRaw(comp); // DEFLATE
+  throw new Error("compresión de Excel no soportada");
+}
+
+/* Devuelve la lista de nombres de carpeta de la primera columna. */
+async function leerListadoCarpetas(file){
+  var nombre = (file.name || "").toLowerCase();
+  var buf = new Uint8Array(await file.arrayBuffer());
+
+  if(nombre.endsWith(".csv") || nombre.endsWith(".txt")){
+    var texto = new TextDecoder("utf-8").decode(buf);
+    return texto.split(/\r?\n/)
+      .map(function(l){ return (l.split(/[,;\t]/)[0] || "").replace(/^"|"$/g, "").trim(); })
+      .filter(Boolean);
+  }
+
+  /* .xlsx */
+  var entradas = leerZipEntradas(buf);
+  var dec = new TextDecoder();
+
+  var shared = [];
+  if(entradas["xl/sharedStrings.xml"]){
+    var ssXml = dec.decode(await extraerEntrada(buf, entradas["xl/sharedStrings.xml"]));
+    var siRe = /<si>([\s\S]*?)<\/si>/g, m;
+    while((m = siRe.exec(ssXml))){
+      var txt = (m[1].match(/<t[^>]*>([\s\S]*?)<\/t>/g) || [])
+        .map(function(t){ return t.replace(/<[^>]+>/g, ""); }).join("");
+      shared.push(desescaparXml(txt));
+    }
+  }
+
+  var hoja = Object.keys(entradas)
+    .filter(function(k){ return /^xl\/worksheets\/sheet\d+\.xml$/.test(k); }).sort()[0];
+  if(!hoja) throw new Error("el Excel no tiene ninguna hoja de datos");
+  var sheetXml = dec.decode(await extraerEntrada(buf, entradas[hoja]));
+
+  var out = [];
+  var cRe = /<c\s+r="([A-Z]+)(\d+)"([^>]*)>([\s\S]*?)<\/c>/g, cm;
+  while((cm = cRe.exec(sheetXml))){
+    if(cm[1] !== "A") continue;                 // solo primera columna
+    var attrs = cm[3], inner = cm[4];
+    var tMatch = attrs.match(/t="([^"]+)"/);
+    var tipo = tMatch ? tMatch[1] : "";
+    var val = "";
+    if(tipo === "s"){
+      var vm = inner.match(/<v>([\s\S]*?)<\/v>/);
+      val = shared[parseInt(vm ? vm[1] : "-1", 10)] || "";
+    } else if(tipo === "inlineStr"){
+      var im = inner.match(/<t[^>]*>([\s\S]*?)<\/t>/);
+      val = desescaparXml(im ? im[1].replace(/<[^>]+>/g, "") : "");
+    } else {
+      var vn = inner.match(/<v>([\s\S]*?)<\/v>/);
+      val = desescaparXml(vn ? vn[1] : "");
+    }
+    val = String(val).trim();
+    if(val) out.push(val);
+  }
+  return out;
+}
+
+/* Genera y descarga un ZIP de respaldo de los lotes dados (espera a tenerlo). */
+async function respaldoZip(lotes, nombreZip){
+  if(MODE === "api"){
+    var ids = lotes.map(function(l){ return l.id; });
+    var r = await fetch(Api.urlZipVarios(ids), { credentials:"same-origin" });
+    if(r.status === 401){ SEG.caducada(); throw new Error("tu sesión expiró"); }
+    if(!r.ok) throw new Error("el servidor respondió " + r.status);
+    var blobApi = await r.blob();
+    descarga(blobApi, nombreZip);
+    return blobApi.size;
+  }
+  var veces = {};
+  lotes.forEach(function(l){ var k = l.carpeta.toLowerCase(); veces[k] = (veces[k] || 0) + 1; });
+  var items = [];
+  for(var i=0;i<lotes.length;i++){
+    var l2 = lotes[i];
+    var base = veces[l2.carpeta.toLowerCase()] > 1 ? l2.carpeta + "_" + l2.nit : l2.carpeta;
+    var sg = Object.keys(l2.docs || {});
+    for(var j=0;j<sg.length;j++){
+      var b = await Local.blob(l2.id, sg[j]);
+      if(b) items.push({ path: base + "/" + l2.docs[sg[j]].nombre, blob: b });
+    }
+  }
+  if(!items.length) throw new Error("los lotes a respaldar no tienen documentos guardados");
+  var zip = await zipBlobs(items);
+  descarga(zip, nombreZip);
+  return zip.size;
+}
+
+/* Flujo completo: leer Excel -> respaldar en ZIP -> confirmar -> eliminar. */
+async function eliminarMasivoExcel(file, msgEl){
+  say(msgEl, "Leyendo el archivo “" + file.name + "”…");
+  var nombres;
+  try{ nombres = await leerListadoCarpetas(file); }
+  catch(e){ say(msgEl, "No se pudo leer el archivo: " + e.message, "err"); return; }
+  if(!nombres.length){
+    say(msgEl, "El archivo no trae ningún nombre de carpeta en la primera columna.", "err"); return;
+  }
+
+  /* Normaliza y arma el conjunto a buscar. */
+  var pedidos = {};
+  nombres.forEach(function(n){ pedidos[n.toLowerCase()] = n; });
+
+  await cargarTabla();   // asegura lista fresca del histórico
+  var coincid = cacheLotes.filter(function(l){ return pedidos[(l.carpeta || "").toLowerCase()]; });
+  if(!coincid.length){
+    say(msgEl, "Ninguna de las " + Object.keys(pedidos).length +
+      " carpeta(s) del archivo coincide con el histórico. Revisa que los nombres sean idénticos.", "err");
+    return;
+  }
+  var noEnc = Object.keys(pedidos).filter(function(k){
+    return !cacheLotes.some(function(l){ return (l.carpeta || "").toLowerCase() === k; });
+  });
+
+  /* 1) RESPALDO primero (obligatorio). */
+  var sello = new Date(), p = function(n){ return (n<10?"0":"")+n; };
+  var nombreZip = "Respaldo_antes_de_eliminar_" + coincid.length + "_" + sello.getFullYear() +
+    p(sello.getMonth()+1) + p(sello.getDate()) + "_" + p(sello.getHours()) + p(sello.getMinutes()) + ".zip";
+  say(msgEl, "Generando el respaldo ZIP de " + coincid.length + " carpeta(s) antes de eliminar…");
+  var tam = 0;
+  try{
+    tam = await respaldoZip(coincid, nombreZip);
+  }catch(e){
+    if(!window.confirm("No se pudo generar el respaldo ZIP (" + e.message +
+      ").\n\nAceptar = eliminar de todas formas (SIN respaldo).\nCancelar = no eliminar nada.")){
+      say(msgEl, "Operación cancelada: no se eliminó nada.", "err"); return;
+    }
+  }
+
+  /* 2) Confirmación antes de borrar. */
+  var muestra = coincid.slice(0, 15).map(function(l){ return "• " + l.carpeta; }).join("\n");
+  var aviso = (tam ? "Se descargó el respaldo ZIP (" + human(tam) + ") con " + coincid.length + " carpeta(s).\n\n" : "") +
+    "Ahora se van a ELIMINAR del histórico estas " + coincid.length + " carpeta(s):\n" + muestra +
+    (coincid.length > 15 ? "\n…y " + (coincid.length - 15) + " más" : "") +
+    "\n\nEsta acción no se puede deshacer. ¿Continuar?";
+  if(!window.confirm(aviso)){
+    say(msgEl, "Eliminación cancelada. El respaldo ZIP ya quedó descargado.", "ok"); return;
+  }
+
+  /* 3) Eliminar una a una. */
+  say(msgEl, "Eliminando " + coincid.length + " carpeta(s)…");
+  var ok = 0, fail = [];
+  for(var i=0;i<coincid.length;i++){
+    try{
+      if(MODE === "api") await Api.eliminar(coincid[i]);
+      else await Local.eliminar(coincid[i], false);
+      delete seleccion[coincid[i].id];
+      if(activo && activo.id === coincid[i].id){
+        activo = null; pending = {};
+        refrescarCajas(); pintarActivo(); refrescarObjetivos(); botones();
+      }
+      ok++;
+    }catch(e){ fail.push(coincid[i].carpeta + ": " + e.message); }
+  }
+  await cargarTabla();
+
+  var resumen = "Eliminadas " + ok + " de " + coincid.length + " carpeta(s)." +
+    (tam ? " Respaldo ZIP descargado." : " (sin respaldo)") +
+    (noEnc.length ? "  " + noEnc.length + " nombre(s) del archivo no existían en el histórico." : "") +
+    (fail.length ? "  Fallaron: " + fail.join(" | ") : "");
+  say(msgEl, resumen, fail.length ? "err" : "ok");
+}
+
+/* ------------------------------------------------------------------ *
  * Eliminar una carpeta o lote completo
  * ------------------------------------------------------------------ */
 async function eliminarLote(lote, msgEl){
@@ -1515,6 +1738,20 @@ $("btnZipSel").addEventListener("click", function(){
   var m = marcados();
   if(!m.length){ say($("msgB"), "Marca primero los lotes que quieres descargar.", "err"); return; }
   zipVarios(m, $("msgB"));
+});
+
+/* Eliminación masiva por Excel/CSV (con respaldo ZIP automático previo). */
+$("btnExcelDel").addEventListener("click", function(){
+  $("inExcel").click();
+});
+$("inExcel").addEventListener("change", async function(e){
+  var f = e.target.files && e.target.files[0];
+  e.target.value = "";   // permite volver a elegir el mismo archivo
+  if(!f) return;
+  var btn = $("btnExcelDel");
+  btn.disabled = true; var orig = btn.textContent; btn.textContent = "Procesando…";
+  try{ await eliminarMasivoExcel(f, $("msgB")); }
+  finally{ btn.disabled = false; btn.textContent = orig; }
 });
 
 /* Copia de seguridad completa: un solo ZIP con TODOS los PDF guardados en la

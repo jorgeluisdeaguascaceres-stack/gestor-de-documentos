@@ -267,6 +267,11 @@
         <button class="ghost mini" id="btnLimpiaSel" type="button" disabled>Quitar selección</button>
         <button class="ghost mini" id="btnCopia" type="button" hidden>Descargar copia completa</button>
       </div>
+      <div class="selbar" style="border-color:#6b2530;background:#1a1013">
+        <span class="state" style="flex:1 1 260px">Eliminación masiva por Excel: sube un Excel (.xlsx) o CSV con los nombres de carpeta en la primera columna. Antes de borrar se descarga automáticamente un ZIP de respaldo.</span>
+        <input id="inExcel" type="file" accept=".xlsx,.csv,.txt" hidden>
+        <button class="mini danger" id="btnExcelDel" type="button">Eliminar carpetas desde Excel</button>
+      </div>
       <div class="tablebox">
         <table>
           <thead><tr>
