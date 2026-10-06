@@ -522,12 +522,15 @@ var Local = {
       return x.carpeta.toLowerCase() === l.carpeta.toLowerCase() && x.nit === l.nit;
     })[0];
     if(ya){
+      /* Si llega un documento de paciente y el lote no lo tiene, se completa. */
+      if(l.paciente && !ya.paciente){ ya.paciente = l.paciente; await IDB.put(ya); }
       try { await carpetaDestino(ya); } catch(e){}
       return { lote: ya, existia: true };
     }
     var lote = {
       id: "L" + Date.now() + Math.random().toString(36).slice(2,7),
       ruta: l.ruta, carpeta: l.carpeta, nit: l.nit, sep: l.sep,
+      paciente: l.paciente || "",
       creado: Date.now(), docs: {}
     };
     await IDB.put(lote);
@@ -559,6 +562,13 @@ var Local = {
     await IDB.delF(SIGLAS.map(function(s){ return lote.id + "|" + s; }));
     await IDB.del(lote.id);
     if(tambienDisco) await borrarDeDisco(lote);
+  },
+  async actualizarPaciente(loteId, paciente){
+    var lote = await IDB.get(loteId);
+    if(!lote) throw new Error("El lote ya no existe en la base de datos local.");
+    lote.paciente = String(paciente || "").slice(0,30);
+    await IDB.put(lote);
+    return lote;
   }
 };
 
@@ -597,6 +607,12 @@ var Api = {
   lista: function(){ return jf("api/lotes").then(function(r){ return r.lotes || []; }); },
   eliminar: function(lote){
     return jf("api/lotes/" + encodeURIComponent(lote.id), { method:"DELETE" });
+  },
+  actualizarPaciente: function(loteId, paciente){
+    return jf("api/lotes/" + encodeURIComponent(loteId) + "/paciente", {
+      method:"POST", headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ paciente: paciente })
+    }).then(function(r){ return r.lote; });
   },
   blob: function(loteId, sigla){
     return fetch(Api.urlDoc(loteId, sigla), { credentials:"same-origin" }).then(function(r){
@@ -969,13 +985,14 @@ $("btnCrear").addEventListener("click", async function(){
   var ruta = MODE === "api" ? "" : limpiaRuta($("ruta").value);
   var carpeta = limpia($("carpeta").value);
   var nit = limpia($("nit").value);
+  var paciente = limpia($("paciente").value);
   $("carpeta").classList.toggle("bad", !carpeta);
   $("nit").classList.toggle("bad", !/^\d{5,15}$/.test(nit));
   if(!carpeta){ say($("msgA"), "Escribe el nombre de la carpeta o lote.", "err"); return; }
   if(!/^\d{5,15}$/.test(nit)){ say($("msgA"), "El NIT de la IPS debe ser numérico (entre 5 y 15 dígitos).", "err"); return; }
   $("ruta").value = ruta;
   try{
-    var r = await Store.crear({ ruta:ruta, carpeta:carpeta, nit:nit, sep:$("sep").value });
+    var r = await Store.crear({ ruta:ruta, carpeta:carpeta, nit:nit, sep:$("sep").value, paciente:paciente });
     activo = r.lote;
     pending = {};
     refrescarCajas();
@@ -995,6 +1012,7 @@ $("btnCrear").addEventListener("click", async function(){
 $("btnNuevo").addEventListener("click", function(){
   activo = null; pending = {};
   $("carpeta").value = ""; $("carpeta").classList.remove("bad"); $("nit").classList.remove("bad");
+  if($("paciente")) $("paciente").value = "";
   refrescarCajas();
   say($("msgA"), ""); say($("msgP"), "");
   pintarActivo(); refrescarObjetivos(); botones(); vistaPrevia();
@@ -1496,6 +1514,30 @@ async function eliminarMasivoExcel(file, msgEl){
 }
 
 /* ------------------------------------------------------------------ *
+ * Editar el documento de identidad del paciente de un lote
+ * ------------------------------------------------------------------ */
+async function editarPaciente(lote, msgEl){
+  var actual = lote.paciente || "";
+  var valor = window.prompt(
+    "Documento de identidad del paciente para la carpeta “" + lote.carpeta + "”.\n" +
+    "(Déjalo vacío y acepta para quitarlo.)", actual);
+  if(valor === null) return;              // canceló
+  valor = limpia(valor);
+  try{
+    var actualizado;
+    if(MODE === "api") actualizado = await Api.actualizarPaciente(lote.id, valor);
+    else actualizado = await Local.actualizarPaciente(lote.id, valor);
+    if(activo && activo.id === lote.id){ activo.paciente = actualizado.paciente || valor; pintarActivo(); }
+    await cargarTabla();
+    say(msgEl, valor
+      ? "Documento del paciente guardado para “" + lote.carpeta + "”. Ya puedes buscar la carpeta por ese número."
+      : "Se quitó el documento del paciente de “" + lote.carpeta + "”.", "ok");
+  }catch(e){
+    say(msgEl, "No se pudo guardar el documento del paciente: " + e.message, "err");
+  }
+}
+
+/* ------------------------------------------------------------------ *
  * Eliminar una carpeta o lote completo
  * ------------------------------------------------------------------ */
 async function eliminarLote(lote, msgEl){
@@ -1573,7 +1615,9 @@ function pintarTabla(){
     if(f === "completos" && n < 6) return false;
     if(f === "incompletos" && n >= 6) return false;
     if(!q) return true;
-    return l.carpeta.toLowerCase().indexOf(q) >= 0 || String(l.nit).indexOf(q) >= 0;
+    return l.carpeta.toLowerCase().indexOf(q) >= 0 ||
+           String(l.nit).indexOf(q) >= 0 ||
+           String(l.paciente || "").toLowerCase().indexOf(q) >= 0;
   });
   visibles = rows;
 
@@ -1585,7 +1629,7 @@ function pintarTabla(){
 
   if(!rows.length){
     var tr0 = document.createElement("tr"), td0 = document.createElement("td");
-    td0.colSpan = 6; td0.className = "empty";
+    td0.colSpan = 7; td0.className = "empty";
     td0.textContent = cacheLotes.length
       ? "Ningún lote coincide con la búsqueda."
       : "Aún no hay lotes registrados. Crea una carpeta en la Pantalla A.";
@@ -1630,6 +1674,11 @@ function pintarTabla(){
 
     var td3 = document.createElement("td");
     td3.className = "mono"; td3.textContent = l.nit;
+
+    var tdPac = document.createElement("td");
+    tdPac.className = "mono";
+    tdPac.textContent = l.paciente || "—";
+    if(!l.paciente){ tdPac.style.color = "var(--dim)"; }
 
     var td4 = document.createElement("td");
     var n = 0, unidos = 0;
@@ -1698,6 +1747,7 @@ function pintarTabla(){
       activo = l; pending = {};
       $("ruta").value = l.ruta; $("carpeta").value = l.carpeta;
       $("nit").value = l.nit; $("sep").value = l.sep;
+      if($("paciente")) $("paciente").value = l.paciente || "";
       refrescarCajas();
       verPantalla("A");
       vistaPrevia(); pintarActivo(); refrescarObjetivos(); botones();
@@ -1709,11 +1759,17 @@ function pintarTabla(){
     bd.title = "Eliminar esta carpeta y sus documentos";
     bd.addEventListener("click", function(){ eliminarLote(l, $("msgB")); });
 
+    var bp = document.createElement("button");
+    bp.className = "mini ghost"; bp.type = "button";
+    bp.textContent = l.paciente ? "Doc. paciente" : "+ Doc. paciente";
+    bp.title = "Agregar o cambiar el documento de identidad del paciente";
+    bp.addEventListener("click", function(){ editarPaciente(l, $("msgB")); });
+
     acts.appendChild(selVer); acts.appendChild(sel);
-    acts.appendChild(bz); acts.appendChild(bc); acts.appendChild(bd);
+    acts.appendChild(bz); acts.appendChild(bc); acts.appendChild(bp); acts.appendChild(bd);
     td5.appendChild(acts);
 
-    [td0,td1,td2,td3,td4,td5].forEach(function(td){ tr.appendChild(td); });
+    [td0,td1,td2,td3,tdPac,td4,td5].forEach(function(td){ tr.appendChild(td); });
     tb.appendChild(tr);
   });
   refrescarBarraSel();

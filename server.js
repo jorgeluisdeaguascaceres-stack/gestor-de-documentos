@@ -449,7 +449,8 @@ function leerCuerpo(req, limite){
   });
 }
 function pub(l){
-  return { id:l.id, ruta:l.ruta, carpeta:l.carpeta, nit:l.nit, sep:l.sep, creado:l.creado, docs:l.docs || {} };
+  return { id:l.id, ruta:l.ruta, carpeta:l.carpeta, nit:l.nit, sep:l.sep,
+           paciente:l.paciente || "", creado:l.creado, docs:l.docs || {} };
 }
 
 /* ---------------- archivos estáticos ---------------- */
@@ -701,17 +702,34 @@ var servidor = http.createServer(async function(req,res){
       var nit = limpiaNombre(body.nit);
       var sep = ["_","-"," "].indexOf(body.sep) >= 0 ? body.sep : "_";
       var ruta = limpiaRuta(body.ruta);
+      var paciente = limpiaNombre(body.paciente || "").slice(0,30);
       if(!carpeta) return json(res,400,{ error:"Falta el nombre de la carpeta" });
       if(!/^\d{5,15}$/.test(nit)) return json(res,400,{ error:"NIT inválido" });
 
       var ya = db.lotes.filter(function(l){
         return l.carpeta.toLowerCase() === carpeta.toLowerCase() && l.nit === nit;
       })[0];
-      if(ya) return json(res,200,{ lote: pub(ya), existia:true });
+      if(ya){
+        /* Si llega un documento de paciente y el lote no lo tiene, se completa. */
+        if(paciente && !ya.paciente){ ya.paciente = paciente; save(); }
+        return json(res,200,{ lote: pub(ya), existia:true });
+      }
       var lote = { id:"L"+Date.now()+crypto.randomBytes(3).toString("hex"),
-                   ruta:ruta, carpeta:carpeta, nit:nit, sep:sep, creado:Date.now(), docs:{} };
+                   ruta:ruta, carpeta:carpeta, nit:nit, sep:sep, paciente:paciente,
+                   creado:Date.now(), docs:{} };
       db.lotes.push(lote); save();
       return json(res,201,{ lote: pub(lote), existia:false });
+    }
+
+    /* actualizar el documento de identidad del paciente de un lote */
+    var mp = p.match(/^\/api\/lotes\/([^\/]+)\/paciente$/);
+    if(mp && (req.method === "POST" || req.method === "PUT")){
+      var loteP = db.lotes.filter(function(l){ return l.id === mp[1]; })[0];
+      if(!loteP) return json(res,404,{ error:"Lote no encontrado" });
+      var bodyP = JSON.parse((await leerCuerpo(req, 1024*16)).toString("utf8") || "{}");
+      loteP.paciente = limpiaNombre(bodyP.paciente || "").slice(0,30);
+      save();
+      return json(res,200,{ lote: pub(loteP) });
     }
 
     /* documentos */

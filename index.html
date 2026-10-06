@@ -211,6 +211,10 @@
           <input id="nit" type="text" inputmode="numeric" placeholder="900123456" autocomplete="off">
         </div>
         <div>
+          <label for="paciente">Documento del paciente (opcional)</label>
+          <input id="paciente" type="text" inputmode="numeric" placeholder="1234567890" autocomplete="off">
+        </div>
+        <div>
           <label for="sep">Bloque de separación</label>
           <select id="sep">
             <option value="_">Guión bajo _</option>
@@ -252,7 +256,7 @@
     <div class="card">
       <h2>Buscador inteligente</h2>
       <div class="search">
-        <input id="q" type="text" placeholder="Filtrar por nombre de carpeta o NIT de la IPS…" autocomplete="off">
+        <input id="q" type="text" placeholder="Filtrar por carpeta, NIT de la IPS o documento del paciente…" autocomplete="off">
         <select id="filtro">
           <option value="todos">Todos los lotes</option>
           <option value="completos">Solo completos (6/6)</option>
@@ -276,7 +280,7 @@
         <table>
           <thead><tr>
             <th class="cchk"><input type="checkbox" class="chk" id="chAll" title="Seleccionar todos los lotes de la lista"></th>
-            <th>Fecha y hora</th><th>Nombre de la carpeta</th><th>NIT de la IPS</th>
+            <th>Fecha y hora</th><th>Nombre de la carpeta</th><th>NIT de la IPS</th><th>Doc. paciente</th>
             <th>Estatus de documentos</th><th>Acciones</th>
           </tr></thead>
           <tbody id="tb"></tbody>
