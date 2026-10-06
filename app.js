@@ -980,21 +980,17 @@ function refrescarCajas(){
 }
 
 /* Crear carpeta / lote */
-$("btnCrear").addEventListener("click", async function(){
-  /* En la nube nunca se pide una carpeta del equipo. */
-  var ruta = MODE === "api" ? "" : limpiaRuta($("ruta").value);
-  var carpeta = limpia($("carpeta").value);
-  var nit = limpia($("nit").value);
-  var paciente = limpia($("paciente").value);
-  $("carpeta").classList.toggle("bad", !carpeta);
-  $("nit").classList.toggle("bad", !/^\d{5,15}$/.test(nit));
-  if(!carpeta){ say($("msgA"), "Escribe el nombre de la carpeta o lote.", "err"); return; }
-  if(!/^\d{5,15}$/.test(nit)){ say($("msgA"), "El NIT de la IPS debe ser numérico (entre 5 y 15 dígitos).", "err"); return; }
+/* Validez del documento del paciente: solo dígitos, entre 4 y 20. */
+function pacienteValido(p){ return /^\d{4,20}$/.test(String(p || "").trim()); }
+
+/* Crea realmente la carpeta ya con un documento de paciente válido. */
+async function hacerCrear(ruta, carpeta, nit, paciente){
   $("ruta").value = ruta;
   try{
     var r = await Store.crear({ ruta:ruta, carpeta:carpeta, nit:nit, sep:$("sep").value, paciente:paciente });
     activo = r.lote;
     pending = {};
+    if($("paciente")) $("paciente").value = paciente;
     refrescarCajas();
     say($("msgA"), r.existia
       ? "Esa carpeta ya existía para el NIT indicado: se reabrió para seguir cargando documentos."
@@ -1007,6 +1003,62 @@ $("btnCrear").addEventListener("click", async function(){
   }catch(e){
     say($("msgA"), "No se pudo crear la carpeta: " + e.message, "err");
   }
+}
+
+/* Variables temporales mientras el cuadro flotante pide el documento. */
+var pacPend = null;
+
+function abrirModalPac(ruta, carpeta, nit){
+  pacPend = { ruta:ruta, carpeta:carpeta, nit:nit };
+  $("modalPac-carpeta").textContent = carpeta;
+  $("modalPac-input").value = "";
+  $("modalPac-err").style.display = "none";
+  $("modalPac-err").textContent = "";
+  $("modalPac").hidden = false;
+  document.body.classList.add("noscroll");
+  setTimeout(function(){ $("modalPac-input").focus(); }, 30);
+}
+
+function cerrarModalPac(){
+  $("modalPac").hidden = true;
+  pacPend = null;
+  document.body.classList.remove("noscroll");
+}
+
+async function confirmarModalPac(){
+  if(!pacPend) return;
+  var val = limpia($("modalPac-input").value);
+  if(!pacienteValido(val)){
+    $("modalPac-err").style.display = "block";
+    $("modalPac-err").textContent = "Escribe un número de documento válido (solo dígitos, entre 4 y 20).";
+    $("modalPac-input").focus();
+    return;
+  }
+  var p = pacPend; pacPend = null;
+  $("modalPac").hidden = true;
+  document.body.classList.remove("noscroll");
+  await hacerCrear(p.ruta, p.carpeta, p.nit, val);
+}
+
+$("btnCrear").addEventListener("click", async function(){
+  /* En la nube nunca se pide una carpeta del equipo. */
+  var ruta = MODE === "api" ? "" : limpiaRuta($("ruta").value);
+  var carpeta = limpia($("carpeta").value);
+  var nit = limpia($("nit").value);
+  var paciente = limpia($("paciente").value);
+  $("carpeta").classList.toggle("bad", !carpeta);
+  $("nit").classList.toggle("bad", !/^\d{5,15}$/.test(nit));
+  if(!carpeta){ say($("msgA"), "Escribe el nombre de la carpeta o lote.", "err"); return; }
+  if(!/^\d{5,15}$/.test(nit)){ say($("msgA"), "El NIT de la IPS debe ser numérico (entre 5 y 15 dígitos).", "err"); return; }
+  /* El documento del paciente es obligatorio: si falta o no es válido,
+     sale un cuadro flotante que obliga a digitarlo antes de guardar. */
+  if(!pacienteValido(paciente)){
+    $("paciente").classList.add("bad");
+    abrirModalPac(ruta, carpeta, nit);
+    return;
+  }
+  $("paciente").classList.remove("bad");
+  await hacerCrear(ruta, carpeta, nit, paciente);
 });
 
 $("btnNuevo").addEventListener("click", function(){
@@ -1520,18 +1572,20 @@ async function editarPaciente(lote, msgEl){
   var actual = lote.paciente || "";
   var valor = window.prompt(
     "Documento de identidad del paciente para la carpeta “" + lote.carpeta + "”.\n" +
-    "(Déjalo vacío y acepta para quitarlo.)", actual);
+    "(Es obligatorio: escribe solo dígitos, entre 4 y 20.)", actual);
   if(valor === null) return;              // canceló
   valor = limpia(valor);
+  if(!pacienteValido(valor)){
+    say(msgEl, "El documento del paciente es obligatorio: escribe solo dígitos, entre 4 y 20.", "err");
+    return;
+  }
   try{
     var actualizado;
     if(MODE === "api") actualizado = await Api.actualizarPaciente(lote.id, valor);
     else actualizado = await Local.actualizarPaciente(lote.id, valor);
     if(activo && activo.id === lote.id){ activo.paciente = actualizado.paciente || valor; pintarActivo(); }
     await cargarTabla();
-    say(msgEl, valor
-      ? "Documento del paciente guardado para “" + lote.carpeta + "”. Ya puedes buscar la carpeta por ese número."
-      : "Se quitó el documento del paciente de “" + lote.carpeta + "”.", "ok");
+    say(msgEl, "Documento del paciente guardado para “" + lote.carpeta + "”. Ya puedes buscar la carpeta por ese número.", "ok");
   }catch(e){
     say(msgEl, "No se pudo guardar el documento del paciente: " + e.message, "err");
   }
@@ -2166,6 +2220,23 @@ $("modalRA").addEventListener("click", function(e){
   if(e.target === this) cerrarModalAR();
 });
 /* --- Fin botones modal --- */
+
+/* --- Cuadro flotante del documento del paciente (obligatorio) --- */
+$("modalPac-ok").addEventListener("click", confirmarModalPac);
+$("modalPac-cancel").addEventListener("click", function(){
+  cerrarModalPac();
+  say($("msgA"), "La carpeta no se guardó: el documento del paciente es obligatorio.", "err");
+});
+$("modalPac-input").addEventListener("keydown", function(e){
+  if(e.key === "Enter"){ e.preventDefault(); confirmarModalPac(); }
+});
+/* Al dar Enter en los campos de la Sección 1 se intenta guardar la carpeta. */
+["carpeta","nit","paciente"].forEach(function(id){
+  $(id).addEventListener("keydown", function(e){
+    if(e.key === "Enter"){ e.preventDefault(); $("btnCrear").click(); }
+  });
+});
+/* --- Fin cuadro flotante del paciente --- */
 
 pintarCajas();
 vistaPrevia();

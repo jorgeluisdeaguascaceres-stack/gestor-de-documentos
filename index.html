@@ -211,7 +211,7 @@
           <input id="nit" type="text" inputmode="numeric" placeholder="900123456" autocomplete="off">
         </div>
         <div>
-          <label for="paciente">Documento del paciente (opcional)</label>
+          <label for="paciente">Documento del paciente (obligatorio)</label>
           <input id="paciente" type="text" inputmode="numeric" placeholder="1234567890" autocomplete="off">
         </div>
         <div>
@@ -462,6 +462,24 @@
       <button class="go" id="modalRA-add" type="button">⊕ Anexar</button>
       <button id="modalRA-rep" type="button" style="background:#8e2f3c">↻ Reemplazar</button>
       <button class="ghost" id="modalRA-cancel" type="button">✕ Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Documento del paciente (obligatorio) -->
+<div id="modalPac" class="modal-overlay" hidden>
+  <div class="modal-box">
+    <div class="modal-title">🩺 Documento del paciente</div>
+    <div class="modal-text">
+      Para guardar la carpeta <strong id="modalPac-carpeta"></strong> es
+      <strong>obligatorio</strong> escribir el número de documento del paciente.
+    </div>
+    <input id="modalPac-input" type="text" inputmode="numeric" placeholder="1234567890"
+           autocomplete="off" style="width:100%;margin-bottom:10px">
+    <div id="modalPac-err" class="modal-text" style="color:#ff8585;margin-bottom:12px;display:none"></div>
+    <div class="modal-actions">
+      <button class="go" id="modalPac-ok" type="button">✓ Guardar carpeta</button>
+      <button class="ghost" id="modalPac-cancel" type="button">✕ Cancelar</button>
     </div>
   </div>
 </div>
