@@ -45,6 +45,12 @@ var TRAS_PROXY = process.env.TRAS_PROXY
 
 var SIGLAS = ["CRC","AUT","HEV","FEV","OPF","EPI"];
 
+/* Rótulo de nomenclatura por normativa. La clave de guardado sigue
+   siendo la sigla (no se pierde ningún archivo ya guardado); solo cambia
+   el código con el que se nombra el PDF generado. */
+var ROTULOS = { AUT: "PDE" };
+function rotulo(sigla){ return ROTULOS[sigla] || sigla; }
+
 /* ================================================================== *
  * ALMACÉN: la nube si está configurada, o el disco local si no
  * ------------------------------------------------------------------ *
@@ -156,7 +162,7 @@ function claveDoc(lote, nombre){
   return PRE_DOCS + carpeta + "/" + arch;
 }
 function nombreArchivo(sigla, nit, carpeta, sep){
-  return limpiaNombre(sigla.toUpperCase() + sep + nit + sep + carpeta) + ".pdf";
+  return limpiaNombre(rotulo(sigla).toUpperCase() + sep + nit + sep + carpeta) + ".pdf";
 }
 
 /* ---------------- ZIP (método store) ---------------- */

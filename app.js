@@ -18,6 +18,13 @@ var DOCS = [
 ];
 var SIGLAS = DOCS.map(function(d){ return d.sigla; });
 
+/* Rótulo visible y código de nomenclatura por normativa.
+   La clave interna de guardado NO cambia (sigue siendo la sigla),
+   así los archivos ya guardados no se pierden. Solo cambia el
+   código que se ve y el nombre del PDF que se genera. */
+var ROTULOS = { AUT: "PDE" };
+function rotulo(sigla){ return ROTULOS[sigla] || sigla; }
+
 var $ = function(id){ return document.getElementById(id); };
 var pending = {};      // sigla -> [File, File, …] aún no procesados (se unen en uno solo)
 var activo = null;     // lote activo
@@ -49,7 +56,7 @@ function destino(lote){
   return unir(lote.ruta, lote.carpeta);
 }
 function nombreArchivo(sigla, nit, carpeta, sep){
-  return limpia(sigla.toUpperCase() + sep + nit + sep + carpeta) + ".pdf";
+  return limpia(rotulo(sigla).toUpperCase() + sep + nit + sep + carpeta) + ".pdf";
 }
 function human(b){
   if(b < 1024) return b + " B";
@@ -747,7 +754,7 @@ function pintarCajas(){
     var head = document.createElement("div"); head.className = "bhead";
     var ico = document.createElement("div"); ico.className = "ico"; ico.textContent = "PDF";
     var wrap = document.createElement("div");
-    var sg = document.createElement("div"); sg.className = "sigla"; sg.textContent = d.sigla;
+    var sg = document.createElement("div"); sg.className = "sigla"; sg.textContent = rotulo(d.sigla);
     var ds = document.createElement("div"); ds.className = "desc"; ds.textContent = d.desc;
     wrap.appendChild(sg); wrap.appendChild(ds);
     head.appendChild(ico); head.appendChild(wrap);
@@ -808,7 +815,7 @@ function mostrarModalAR(sigla, arr){
   var ya = activo && activo.docs && activo.docs[sigla];
   var info = ya ? ya.nombre : sigla;
   var incoming = arr.length === 1 ? "1 archivo nuevo" : arr.length + " archivos nuevos";
-  var txt = "La casilla <strong>" + sigla + "</strong> ya tiene un documento guardado (<strong>" + info + "</strong>).<br>" +
+  var txt = "La casilla <strong>" + rotulo(sigla) + "</strong> ya tiene un documento guardado (<strong>" + info + "</strong>).<br>" +
     "Estás intentando agregar " + incoming + ".<br><br>" +
     "<strong>Anexar</strong>: los nuevos PDF se juntan con el documento existente (se fusionan al procesar).<br>" +
     "<strong>Reemplazar</strong>: se elimina el documento actual y se queda solo el nuevo.";
@@ -953,7 +960,7 @@ function pintarActivo(){
   DOCS.forEach(function(d){
     var s = document.createElement("span");
     s.className = "sig" + ((activo.docs && activo.docs[d.sigla]) ? " on" : "");
-    s.textContent = d.sigla;
+    s.textContent = rotulo(d.sigla);
     box.appendChild(s);
   });
 }
@@ -1732,7 +1739,7 @@ function pintarTabla(){
       if(doc){ n++; if(doc.partes > 1) unidos++; }
       var s = document.createElement("span");
       s.className = "sig" + (doc ? " on" : "");
-      s.textContent = d.sigla;
+      s.textContent = rotulo(d.sigla);
       s.title = d.desc + (doc
         ? " · cargado" + (doc.partes > 1 ? " (unión de " + doc.partes + " archivos)" : "")
         : " · pendiente");
@@ -1754,7 +1761,7 @@ function pintarTabla(){
     DOCS.forEach(function(d){
       if(l.docs && l.docs[d.sigla]){
         var op = document.createElement("option");
-        op.value = d.sigla; op.textContent = d.sigla + " – " + l.docs[d.sigla].nombre;
+        op.value = d.sigla; op.textContent = rotulo(d.sigla) + " – " + l.docs[d.sigla].nombre;
         selVer.appendChild(op);
       }
     });
@@ -1771,7 +1778,7 @@ function pintarTabla(){
     DOCS.forEach(function(d){
       if(l.docs && l.docs[d.sigla]){
         var op = document.createElement("option");
-        op.value = d.sigla; op.textContent = d.sigla + " – " + l.docs[d.sigla].nombre;
+        op.value = d.sigla; op.textContent = rotulo(d.sigla) + " – " + l.docs[d.sigla].nombre;
         sel.appendChild(op);
       }
     });
