@@ -160,6 +160,69 @@ async function zipBlobs(items){   // [{path, blob}]
 }
 
 /* ------------------------------------------------------------------ *
+ * Exportar una consulta a Excel (.xlsx) sin librerías externas.
+ * Un .xlsx es un ZIP de archivos XML; reutilizamos el empaquetador ZIP.
+ * ------------------------------------------------------------------ */
+function xmlEsc(s){
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+}
+function colLetra(n){            // 0 -> A, 1 -> B, ...
+  var s = "";
+  n = n + 1;
+  while(n > 0){ var r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = (n - r - 1) / 26; }
+  return s;
+}
+function filaXml(idx, celdas){
+  var r = idx + 1, out = '<row r="' + r + '">';
+  for(var c=0;c<celdas.length;c++){
+    var ref = colLetra(c) + r;
+    out += '<c r="' + ref + '" t="inlineStr"><is><t xml:space="preserve">' +
+           xmlEsc(celdas[c]) + '</t></is></c>';
+  }
+  return out + "</row>";
+}
+async function construirXlsx(encabezados, filas, nombreHoja){
+  var hoja = nombreHoja || "Consulta";
+  var sheet = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>';
+  sheet += filaXml(0, encabezados);
+  for(var i=0;i<filas.length;i++) sheet += filaXml(i + 1, filas[i]);
+  sheet += "</sheetData></worksheet>";
+
+  var contentTypes = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+    '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+    '<Default Extension="xml" ContentType="application/xml"/>' +
+    '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
+    '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>' +
+    '</Types>';
+  var rels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>' +
+    '</Relationships>';
+  var workbook = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" ' +
+    'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
+    '<sheets><sheet name="' + xmlEsc(hoja) + '" sheetId="1" r:id="rId1"/></sheets></workbook>';
+  var wbRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>' +
+    '</Relationships>';
+
+  function b(txt){ return new Blob([txt], { type:"application/xml" }); }
+  var items = [
+    { path:"[Content_Types].xml", blob:b(contentTypes) },
+    { path:"_rels/.rels", blob:b(rels) },
+    { path:"xl/workbook.xml", blob:b(workbook) },
+    { path:"xl/_rels/workbook.xml.rels", blob:b(wbRels) },
+    { path:"xl/worksheets/sheet1.xml", blob:b(sheet) }
+  ];
+  return await zipBlobs(items);
+}
+
+/* ------------------------------------------------------------------ *
  * SEGURIDAD: pantalla de acceso, sesión y cambio de contraseña
  *   - Modo servidor: usuarios reales en el servidor central (cookie de sesión).
  *   - Modo local: bloqueo disuasorio guardado en este navegador.
@@ -1829,6 +1892,35 @@ function pintarTabla(){
 $("q").addEventListener("input", pintarTabla);
 $("filtro").addEventListener("change", pintarTabla);
 $("btnRef").addEventListener("click", cargarTabla);
+
+/* Descargar la consulta actual (lo que se ve en la tabla) en un Excel. */
+$("btnExcel").addEventListener("click", async function(){
+  if(!visibles.length){
+    say($("msgB"), "No hay carpetas para exportar con el filtro actual.", "err");
+    return;
+  }
+  say($("msgB"), "Generando el Excel de la consulta…");
+  try{
+    var encab = ["Carpeta (Número de factura)", "Número de documento"]
+      .concat(DOCS.map(function(d){ return rotulo(d.sigla); }));
+    var filas = visibles.map(function(l){
+      var base = [ l.carpeta || "", l.paciente || "" ];
+      DOCS.forEach(function(d){
+        base.push((l.docs && l.docs[d.sigla]) ? "SI" : "NO");
+      });
+      return base;
+    });
+    var xlsx = await construirXlsx(encab, filas, "Consulta");
+    var s = new Date();
+    function p(n){ return (n < 10 ? "0" : "") + n; }
+    var nom = "Consulta_" + s.getFullYear() + p(s.getMonth()+1) + p(s.getDate()) +
+              "_" + p(s.getHours()) + p(s.getMinutes()) + ".xlsx";
+    descarga(xlsx, nom);
+    say($("msgB"), "Excel listo: " + filas.length + " carpeta(s) exportada(s).", "ok");
+  }catch(e){
+    say($("msgB"), "No se pudo generar el Excel: " + e.message, "err");
+  }
+});
 $("chAll").addEventListener("change", function(){
   var on = $("chAll").checked;
   visibles.forEach(function(l){
