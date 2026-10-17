@@ -3,485 +3,195 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Gestión Documental y Nomenclatura Automatizada</title>
-<style>
-  :root{
-    --bg:#0d1420; --panel:#141e2f; --panel2:#1a2740; --line:#25344f; --line2:#31456a;
-    --txt:#e9eff8; --dim:#93a4bd; --acc:#3b82f6; --ok:#22c55e; --warn:#f59e0b; --err:#ef4444;
-    --r:14px;
-  }
-  *{box-sizing:border-box}
-  html,body{margin:0}
-  body{
-    background:radial-gradient(1100px 520px at 15% -10%,#1b2a44 0%,var(--bg) 55%) no-repeat,var(--bg);
-    color:var(--txt); min-height:100vh;
-    font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-  }
-  .wrap{max-width:1180px;margin:0 auto;padding:24px 18px 64px}
-  .top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
-  h1{font-size:22px;margin:0 0 4px}
-  .sub{color:var(--dim);font-size:13.5px;margin:0}
-  .mode{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);
-    border-radius:999px;padding:7px 14px;font-size:12.5px;color:var(--dim);white-space:nowrap}
-  .dot{width:9px;height:9px;border-radius:50%;background:var(--warn)}
-  .dot.on{background:var(--ok)}
-  .tabs{display:flex;gap:8px;margin:20px 0 16px;border-bottom:1px solid var(--line)}
-  .tab{background:none;border:0;border-bottom:2px solid transparent;color:var(--dim);
-    padding:11px 16px;font:600 14px inherit;cursor:pointer}
-  .tab.sel{color:var(--txt);border-bottom-color:var(--acc)}
-  .screen{display:none}.screen.sel{display:block}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:18px;margin-bottom:16px}
-  .card h2{font-size:12.5px;text-transform:uppercase;letter-spacing:.9px;color:var(--dim);margin:0 0 14px}
-  .fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}
-  .fields .wide{grid-column:1/-1}
-  label{display:block;font-size:12.5px;color:var(--dim);margin-bottom:5px}
-  input,select{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);
-    border-radius:10px;padding:10px 12px;font:14px inherit;outline:none}
-  input:focus,select:focus{border-color:var(--acc)}
-  input.bad{border-color:var(--err)}
-  .req::after{content:" *";color:var(--err)}
-  .actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:16px}
-  button{background:var(--acc);color:#fff;border:0;border-radius:10px;padding:11px 18px;
-    font:600 14px inherit;cursor:pointer}
-  button.ghost{background:transparent;border:1px solid var(--line2);color:var(--txt)}
-  button.go{background:var(--ok)}
-  button.mini{padding:7px 12px;font-size:12.5px;border-radius:8px}
-  button.danger{background:transparent;border:1px solid #6b2530;color:#ffb4b4}
-  button.danger:hover{background:#2a1218;border-color:#8e2f3c}
-  button:disabled{opacity:.42;cursor:not-allowed}
-  .active-lote{background:#0f2a1c;border:1px solid #1f5c3c;border-radius:12px;padding:12px 14px;
-    margin-bottom:16px;font-size:13.5px;display:none}
-  .active-lote.on{display:block}
-  .active-lote b{color:#7ee2a8}
-  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
-  .boxes{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
-  .box{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px;
-    display:flex;flex-direction:column;gap:10px}
-  .box.hot{border-color:var(--ok);background:#13251d}
-  .box.done{border-color:#1f5c3c}
-  .bhead{display:flex;align-items:center;gap:11px}
-  .ico{width:42px;height:50px;flex:0 0 42px;border-radius:6px;background:#c0392b;position:relative;
-    display:flex;align-items:flex-end;justify-content:center;padding-bottom:5px;
-    font:700 10px inherit;color:#fff;letter-spacing:.5px}
-  .ico::before{content:"";position:absolute;top:0;right:0;width:12px;height:12px;
-    background:linear-gradient(225deg,#0d1420 50%,transparent 50%)}
-  .sigla{font:700 19px inherit;letter-spacing:1.5px}
-  .desc{font-size:12.5px;color:var(--dim);margin-top:1px}
-  .zone{border:2px dashed var(--line2);border-radius:10px;padding:14px 10px;text-align:center;
-    font-size:12.5px;color:var(--dim);cursor:pointer;background:#101a2b}
-  .zone:hover{border-color:var(--acc)}
-  .zone.has{border-style:solid;border-color:#2f6b4a;color:var(--txt);background:#12251c}
-  .flist{display:flex;flex-direction:column;gap:6px}
-  .flist:empty{display:none}
-  .fcount{font-size:11.5px;color:var(--dim)}
-  .fitem{display:flex;align-items:center;gap:6px;background:#101a2b;border:1px solid var(--line);
-    border-radius:8px;padding:5px 7px}
-  .fnum{flex:0 0 18px;height:18px;border-radius:50%;background:#1f2f4a;color:#9fd0ff;
-    font:700 10.5px ui-monospace,monospace;display:flex;align-items:center;justify-content:center}
-  .fname{flex:1 1 auto;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .fsize{flex:0 0 auto;font-size:11px;color:var(--dim)}
-  .fbtn{background:transparent;border:1px solid var(--line2);color:var(--txt);
-    border-radius:6px;padding:2px 7px;font-size:12px;line-height:1.3}
-  .fbtn.del{color:#ffb4b4;border-color:#6b2530}
-  .target{font-size:11.5px;color:#9fd0ff;word-break:break-all}
-  .brow{display:flex;gap:8px;align-items:center;justify-content:space-between}
-  .state{font-size:11.5px;color:var(--dim)}
-  .state.ok{color:#7ee2a8}.state.err{color:#ffb4b4}
-  .search{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
-  .search input{max-width:420px}
-  .tablebox{overflow:auto;border:1px solid var(--line);border-radius:12px;max-height:560px}
-  table{width:100%;border-collapse:collapse;font-size:13px}
-  th{position:sticky;top:0;background:#101a2b;color:var(--dim);text-align:left;padding:11px 10px;
-    border-bottom:1px solid var(--line);font-weight:600;white-space:nowrap}
-  td{padding:10px;border-bottom:1px solid #1d2a41;vertical-align:middle}
-  tr:last-child td{border-bottom:0}
-  tr.selrow td{background:#132135}
-  td.acciones{white-space:nowrap;text-align:right}
-  td.acciones button{margin-left:6px}
-  td.vacio{color:var(--dim);text-align:center;padding:18px 10px}
-  th.cchk,td.cchk{width:38px;text-align:center;padding-right:0}
-  .chk{width:16px;height:16px;accent-color:var(--acc);cursor:pointer}
-  .selbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--panel2);
-    border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:12px}
-  .selbar .state{flex:1 1 220px}
-  .sig{display:inline-block;min-width:38px;text-align:center;font:700 10.5px ui-monospace,monospace;
-    padding:4px 5px;border-radius:6px;margin:2px 3px 2px 0;
-    background:#1b2740;color:#5a6b87;border:1px solid #263651}
-  .sig.on{background:#0f2a1c;color:#7ee2a8;border-color:#1f5c3c}
-  .prog{font-size:11.5px;color:var(--dim);margin-top:4px}
-  .rowacts{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-  .rowacts select{width:auto;padding:7px 10px;font-size:12.5px}
-  .msg{font-size:13px;color:var(--dim);min-height:18px;margin-top:10px}
-  .msg.err{color:#ffb4b4}.msg.ok{color:#7ee2a8}
-  .hint{font-size:12px;color:var(--dim);margin-top:8px}
-  .empty{padding:18px;color:var(--dim);font-size:13.5px}
-  footer{margin-top:24px;text-align:center;color:#6b7b94;font-size:12px}
-  body.noscroll{overflow:hidden}
-  .ov{position:fixed;inset:0;background:rgba(5,9,16,.78);z-index:50;display:flex;
-    align-items:center;justify-content:center;padding:18px}
-  .ov[hidden]{display:none}
-  .ovbox{background:var(--panel);border:1px solid var(--line2);border-radius:var(--r);
-    width:min(1000px,100%);height:min(88vh,100%);display:flex;flex-direction:column;overflow:hidden}
-  .ovtop{display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line)}
-  .ovtop h3{margin:0;font-size:15px}
-  .ovtop .sub{font-size:12px;word-break:break-all}
-  .ovx{background:transparent;border:1px solid var(--line2);color:var(--txt);
-    border-radius:8px;padding:5px 11px;font-size:15px;line-height:1}
-  .ovbody{flex:1 1 auto;background:#0a1018;min-height:0}
-  .ovbody iframe{width:100%;height:100%;border:0;display:block;background:#0a1018}
-  .ovfoot{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:12px 16px;
-    border-top:1px solid var(--line)}
-  .ovfoot .state{flex:1 1 200px}
-  /* ---------- pantalla de acceso ---------- */
-  .gate{position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;
-    padding:18px;background:radial-gradient(900px 460px at 50% -10%,#1b2a44 0%,#0d1420 60%),#0d1420}
-  .gate[hidden]{display:none}
-  .gbox{width:min(400px,100%);background:var(--panel);border:1px solid var(--line2);
-    border-radius:var(--r);padding:26px 24px}
-  .glogo{width:46px;height:46px;border-radius:12px;background:var(--acc);display:flex;
-    align-items:center;justify-content:center;font:700 18px inherit;margin-bottom:14px}
-  .gbox h2{margin:0 0 6px;font-size:19px;text-transform:none;letter-spacing:0;color:var(--txt)}
-  .gbox p.sub{margin:0 0 18px}
-  .gfield{margin-bottom:13px}
-  .gbox button{width:100%;padding:12px}
-  .gbox .msg{text-align:center}
-  .gnote{font-size:11.5px;color:var(--dim);margin-top:14px;line-height:1.45}
-  .pwrow{display:flex;gap:8px;align-items:center}
-  .pwrow input{flex:1 1 auto}
-  .pwrow button{width:auto;flex:0 0 auto;padding:10px 12px;font-size:12.5px}
-  .who{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);
-    border-radius:999px;padding:6px 8px 6px 14px;font-size:12.5px;color:var(--dim);white-space:nowrap}
-  .who[hidden]{display:none}
-  .who b{color:var(--txt)}
-  .topright{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-  .fuerza{height:5px;border-radius:3px;background:#22304a;margin-top:7px;overflow:hidden}
-  .fuerza i{display:block;height:100%;width:0;background:var(--err);transition:width .2s}
-  .fuerza.m i{width:55%;background:var(--warn)}
-  .fuerza.b i{width:22%;background:var(--err)}
-  .fuerza.f i{width:100%;background:var(--ok)}
-  /* Modal Anexar/Reemplazar */
-  .modal-overlay{position:fixed;inset:0;background:rgba(5,9,16,.92);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px}
-  .modal-overlay[hidden]{display:none}
-  .modal-box{background:var(--panel);border:1px solid var(--line2);border-radius:var(--r);padding:28px 32px;max-width:520px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.6)}
-  .modal-title{font-size:18px;font-weight:700;color:var(--txt);margin-bottom:8px}
-  .modal-text{font-size:13.5px;color:var(--dim);margin-bottom:18px;line-height:1.6}
-  .modal-text strong{color:#90e0ef}
-  .modal-actions{display:flex;gap:12px;flex-wrap:wrap}
-  .modal-actions button{flex:1;min-width:140px}
-</style>
+<title>NEXUSMED · Plataforma Clínica</title>
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<div class="wrap">
-  <div class="top">
+<header class="appbar">
+  <div class="brand">
+    <div class="brandlogo">
+      <svg viewBox="0 0 64 64" width="100%" height="100%" aria-hidden="true">
+        <defs><linearGradient id="nxg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#2dd4bf"/><stop offset="1" stop-color="#00c8f8"/>
+        </linearGradient></defs>
+        <path d="M27 9 h10 a3 3 0 0 1 3 3 v12 h12 a3 3 0 0 1 3 3 v10 a3 3 0 0 1 -3 3 h-12 v12 a3 3 0 0 1 -3 3 h-10 a3 3 0 0 1 -3 -3 v-12 h-12 a3 3 0 0 1 -3 -3 v-10 a3 3 0 0 1 3 -3 h12 v-12 a3 3 0 0 1 3 -3 z" fill="url(#nxg)"/>
+        <path d="M41 20 c9 -3 15 -1 15 -1 s-1 11 -8 14 c-5 2 -9 1 -9 1 s-2 -9 2 -14 z" fill="#0b1622" opacity=".3"/>
+      </svg>
+    </div>
     <div>
-      <h1>Gestión Documental y Nomenclatura Automatizada</h1>
-      <p class="sub">Auditoría médica y facturación en salud &middot; renombrado automático, carga masiva y consulta histórica.</p>
-    </div>
-    <div class="topright">
-      <div class="who" id="who" hidden>
-        <span>Sesión: <b id="whoTxt">—</b></span>
-        <button class="ghost mini" id="btnUsuarios" type="button" hidden>Usuarios</button>
-        <button class="ghost mini" id="btnClave" type="button">Cambiar contraseña</button>
-        <button class="ghost mini" id="btnSalir" type="button">Salir</button>
-      </div>
-      <div class="mode"><span class="dot" id="dot"></span><span id="modeTxt">Detectando almacenamiento…</span></div>
+      <div class="brandname">NEXUS<span>MED</span></div>
+      <div class="brandtag">plataforma que conecta todo</div>
     </div>
   </div>
-
-  <div class="tabs">
-    <button class="tab sel" id="tabA" type="button">Pantalla A &middot; Carga y creación</button>
-    <button class="tab" id="tabB" type="button">Pantalla B &middot; Consulta histórica</button>
+  <div class="userchip">
+    <span class="udot"></span>
+    <span class="uname" id="userName">JORGE LUIS DE AGUAS CÁCERES</span>
+    <span class="urole">ADMIN</span>
   </div>
+</header>
 
-  <!-- ================= PANTALLA A ================= -->
-  <section class="screen sel" id="scrA">
-    <div class="card">
-      <h2>Sección 1 &middot; Configuración de destino y datos</h2>
-      <div class="fields">
-        <div class="wide" id="campoRuta">
-          <label for="ruta">Carpeta de destino</label>
-          <input id="ruta" type="text" value="" placeholder="Elige la carpeta con el botón, o escribe la ruta: C:\Users\JORGE\Documents\PROYECT" autocomplete="off">
-        </div>
-        <div>
-          <label for="carpeta" class="req">Nombre de la carpeta (lote)</label>
-          <input id="carpeta" type="text" placeholder="Lote_Enero_01" autocomplete="off">
-        </div>
-        <div>
-          <label for="nit" class="req">NIT de la IPS</label>
-          <input id="nit" type="text" inputmode="numeric" placeholder="900123456" autocomplete="off">
-        </div>
-        <div>
-          <label for="sep">Bloque de separación</label>
-          <select id="sep">
-            <option value="_">Guión bajo _</option>
-            <option value="-">Guión medio -</option>
-            <option value=" ">Espacio</option>
-          </select>
-        </div>
-      </div>
-      <div class="actions">
-        <button class="ghost" id="btnRaiz" type="button" hidden>Elegir carpeta de destino</button>
-        <button id="btnCrear" type="button">Crear carpeta</button>
-        <button class="ghost" id="btnNuevo" type="button">Nuevo lote</button>
-        <span class="mono" id="vista" style="color:#9fd0ff;font-size:12.5px"></span>
-      </div>
-      <div class="hint" id="raizTxt" hidden></div>
-      <div class="msg" id="msgA"></div>
+<main class="wrap">
+  <!-- ===================== INICIO ===================== -->
+  <section id="home" class="view sel">
+    <div class="welcome">
+      <h1>Bienvenido</h1>
+      <p>Seleccione un módulo para comenzar a trabajar</p>
     </div>
+    <div class="cards">
+      <button class="modcard" data-view="admision" type="button">
+        <span class="tag">ACTIVO</span>
+        <span class="modicon">
+          <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>
+        </span>
+        <span class="modtitle">Admisión</span>
+        <span class="moddesc">Registro y gestión de ingresos de pacientes al centro.</span>
+      </button>
 
-    <div class="active-lote" id="activo"></div>
+      <button class="modcard" data-view="registro" type="button">
+        <span class="tag">ACTIVO</span>
+        <span class="modicon">
+          <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h6M9 9h1"/></svg>
+        </span>
+        <span class="modtitle">Registro Médico</span>
+        <span class="moddesc">Historias clínicas y notas de evolución de la IPS.</span>
+      </button>
 
-    <div class="card">
-      <h2>Sección 2 &middot; Zona de carga (6 documentos)</h2>
-      <div class="boxes" id="boxes"></div>
-      <div class="hint">Puedes soltar varios PDF en una misma casilla: se unirán en un único archivo, en el orden que indiques, y se guardarán con la nomenclatura estricta. El nombre original de cada PDF se ignora por completo.</div>
-    </div>
-
-    <div class="card">
-      <h2>Sección 3 &middot; Procesamiento y guardado</h2>
-      <div class="actions">
-        <button class="go" id="btnTodo" type="button" disabled>Procesar y guardar todo</button>
-        <button class="ghost" id="btnZipA" type="button" disabled>Descargar ZIP de este lote</button>
-      </div>
-      <div class="msg" id="msgP"></div>
+      <button class="modcard" data-view="config" type="button">
+        <span class="tag">ACTIVO</span>
+        <span class="modicon">
+          <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </span>
+        <span class="modtitle">Configuraciones</span>
+        <span class="moddesc">Usuarios, control de acceso y parámetros del sistema.</span>
+      </button>
     </div>
   </section>
-
-  <!-- ================= PANTALLA B ================= -->
-  <section class="screen" id="scrB">
-    <div class="card">
-      <h2>Buscador inteligente</h2>
-      <div class="search">
-        <input id="q" type="text" placeholder="Filtrar por carpeta, NIT de la IPS o documento del paciente…" autocomplete="off">
-        <select id="filtro">
-          <option value="todos">Todos los lotes</option>
-          <option value="completos">Solo completos (6/6)</option>
-          <option value="incompletos">Solo incompletos</option>
+  <!-- ===================== ADMISIÓN ===================== -->
+  <section id="admision" class="view">
+    <div class="viewhead">
+      <button class="back" data-view="home" type="button">← Inicio</button>
+      <h2>Admisión de pacientes</h2>
+      <span class="crumb">Módulo &middot; Flujo de entrada</span>
+    </div>
+    <div class="panel">
+      <h3>Datos del paciente e ingreso</h3>
+      <form id="formAdm" autocomplete="off">
+        <div class="grid">
+          <div><label>Tipo de documento</label>
+            <select id="admTipoDoc"><option>CC</option><option>TI</option><option>RC</option><option>CE</option><option>PA</option><option>NUIP</option></select></div>
+          <div><label class="req">Número de documento</label><input id="admDoc" inputmode="numeric" placeholder="1234567890"></div>
+          <div><label class="req">Primer nombre</label><input id="admN1" placeholder="Nombre"></div>
+          <div><label>Segundo nombre</label><input id="admN2"></div>
+          <div><label class="req">Primer apellido</label><input id="admA1" placeholder="Apellido"></div>
+          <div><label>Segundo apellido</label><input id="admA2"></div>
+          <div><label>Fecha de nacimiento</label><input id="admNac" type="date"></div>
+          <div><label>Sexo</label><select id="admSexo"><option value="">—</option><option>Femenino</option><option>Masculino</option><option>Otro</option></select></div>
+          <div><label>Teléfono</label><input id="admTel" inputmode="tel"></div>
+          <div><label>Dirección</label><input id="admDir"></div>
+          <div><label>EPS / Aseguradora</label><input id="admEps" placeholder="Nueva EPS, Sanitas..."></div>
+          <div><label>Régimen</label><select id="admReg"><option>Contributivo</option><option>Subsidiado</option><option>Particular</option><option>Especial</option></select></div>
+          <div><label>Tipo de ingreso</label><select id="admIng"><option>Urgencias</option><option>Consulta externa</option><option>Hospitalización</option><option>Procedimiento</option></select></div>
+          <div><label>Fecha y hora de ingreso</label><input id="admFecha" type="datetime-local"></div>
+          <div><label>Diagnóstico de ingreso (CIE-10)</label><input id="admDx" placeholder="Ej. J00 - Rinofaringitis"></div>
+          <div><label>Médico / profesional</label><input id="admMed" placeholder="Dr(a). ..."></div>
+          <div class="wide"><label>Observaciones</label><textarea id="admObs" rows="3"></textarea></div>
+        </div>
+        <div class="actions">
+          <button class="btn" id="admGuardar" type="submit">Guardar admisión</button>
+          <button class="btn ghost" id="admLimpiar" type="button">Limpiar</button>
+          <span class="msg" id="admMsg"></span>
+        </div>
+      </form>
+    </div>
+    <div class="panel">
+      <div class="ptop"><h3>Admisiones recientes</h3><span class="count" id="admCount">0 registros</span></div>
+      <div class="tablebox">
+        <table><thead><tr><th>Ingreso</th><th>Paciente</th><th>Documento</th><th>Tipo</th><th>EPS</th><th>Médico</th><th></th></tr></thead>
+        <tbody id="admTb"></tbody></table>
+      </div>
+    </div>
+  </section>
+  <!-- ===================== REGISTRO MÉDICO ===================== -->
+  <section id="registro" class="view">
+    <div class="viewhead">
+      <button class="back" data-view="home" type="button">← Inicio</button>
+      <h2>Registro Médico</h2>
+      <span class="crumb">Módulo &middot; Núcleo clínico</span>
+    </div>
+    <div class="panel">
+      <div class="toolbar">
+        <input id="regQ" class="search" placeholder="Buscar por paciente, documento o médico…" autocomplete="off">
+        <select id="regFiltro">
+          <option value="">Todos los tipos</option>
+          <option>Historia clínica</option><option>Evolución SOAP</option>
+          <option>Nota de enfermería</option><option>Terapia</option><option>Epicrisis</option>
         </select>
-        <button class="ghost mini" id="btnRef" type="button">Actualizar</button>
-        <button class="mini" id="btnExcel" type="button">⬇ Descargar consulta en Excel</button>
-        <span class="state" id="resumen"></span>
+        <button class="btn" id="regNueva" type="button">+ Nueva nota</button>
       </div>
-      <div class="selbar">
-        <span class="state" id="selTxt">Marca varios lotes para descargarlos juntos en un solo ZIP.</span>
-        <button class="mini" id="btnZipSel" type="button" disabled>Descargar seleccionados en un ZIP</button>
-        <button class="ghost mini" id="btnLimpiaSel" type="button" disabled>Quitar selección</button>
-        <button class="ghost mini" id="btnCopia" type="button" hidden>Descargar copia completa</button>
-      </div>
-      <div class="selbar" style="border-color:#6b2530;background:#1a1013">
-        <span class="state" style="flex:1 1 260px">Eliminación masiva por Excel: sube un Excel (.xlsx) o CSV con los nombres de carpeta en la primera columna. Antes de borrar se descarga automáticamente un ZIP de respaldo.</span>
-        <input id="inExcel" type="file" accept=".xlsx,.csv,.txt" hidden>
-        <button class="mini danger" id="btnExcelDel" type="button">Eliminar carpetas desde Excel</button>
-      </div>
+      <div class="ptop"><h3>Historias y notas de evolución</h3><span class="count" id="regCount">0 registros</span></div>
       <div class="tablebox">
-        <table>
-          <thead><tr>
-            <th class="cchk"><input type="checkbox" class="chk" id="chAll" title="Seleccionar todos los lotes de la lista"></th>
-            <th>Fecha y hora</th><th>Nombre de la carpeta</th><th>NIT de la IPS</th><th>Doc. paciente</th>
-            <th>Estatus de documentos</th><th>Acciones</th>
-          </tr></thead>
-          <tbody id="tb"></tbody>
-        </table>
+        <table><thead><tr><th>Fecha</th><th>Paciente</th><th>Documento</th><th>Tipo</th><th>Médico</th><th></th></tr></thead>
+        <tbody id="regTb"></tbody></table>
       </div>
-      <div class="msg" id="msgB"></div>
     </div>
   </section>
 
-  <footer>Nomenclatura estricta: SIGLA + separador + NIT + separador + carpeta + .pdf</footer>
-</div>
-
-<!-- ================= VISTA PREVIA / IMPRESIÓN ================= -->
-<div class="ov" id="ov" hidden>
-  <div class="ovbox">
-    <div class="ovtop">
-      <div style="flex:1 1 auto">
-        <h3 id="ovTitle">Vista previa</h3>
-        <p class="sub" id="ovSub"></p>
-      </div>
-      <button class="ovx" id="ovClose" type="button" title="Cerrar la vista previa">&times;</button>
+  <!-- ===================== CONFIGURACIONES ===================== -->
+  <section id="config" class="view">
+    <div class="viewhead">
+      <button class="back" data-view="home" type="button">← Inicio</button>
+      <h2>Configuraciones</h2>
+      <span class="crumb">Módulo &middot; Administración</span>
     </div>
-    <div class="ovbody"><iframe id="ovFrame" title="Vista previa del documento"></iframe></div>
-    <div class="ovfoot">
-      <span class="state" id="ovMsg"></span>
-      <button id="ovPrint" type="button" disabled>Imprimir</button>
-      <button class="ghost" id="ovDown" type="button" disabled>Descargar</button>
-      <button class="ghost" id="ovBack" type="button">Cerrar</button>
-    </div>
-  </div>
-</div>
-
-<!-- ================= PANTALLA DE ACCESO ================= -->
-<div class="gate" id="gate" hidden>
-  <div class="gbox">
-    <div class="glogo">GD</div>
-
-    <!-- entrar -->
-    <div id="gLogin">
-      <h2>Acceso restringido</h2>
-      <p class="sub">Identifícate para consultar y cargar documentos clínicos.</p>
-      <form id="formLogin" autocomplete="on">
-        <div class="gfield">
-          <label for="inUsuario">Usuario</label>
-          <input id="inUsuario" name="username" type="text" autocomplete="username" placeholder="tu.usuario">
+    <div class="panel">
+      <h3>Parámetros de la IPS</h3>
+      <form id="formIps" autocomplete="off">
+        <div class="grid">
+          <div class="wide"><label>Nombre de la IPS</label><input id="ipsNombre" placeholder="IPS ..."></div>
+          <div><label>NIT</label><input id="ipsNit" inputmode="numeric" placeholder="900123456"></div>
+          <div><label>Código de habilitación</label><input id="ipsHab"></div>
         </div>
-        <div class="gfield">
-          <label for="inClave">Contraseña</label>
-          <div class="pwrow">
-            <input id="inClave" name="password" type="password" autocomplete="current-password" placeholder="••••••••">
-            <button class="ghost" id="btnVer" type="button">Ver</button>
-          </div>
-        </div>
-        <button id="btnEntrar" type="submit">Entrar</button>
+        <div class="actions"><button class="btn" type="submit">Guardar parámetros</button><span class="msg" id="ipsMsg"></span></div>
       </form>
-      <div class="msg" id="msgLogin"></div>
-      <p class="gnote" id="notaLogin"></p>
-      <p class="gnote" id="lineaPrimer" hidden>
-        ¿Es la primera vez que se usa la aplicación?
-        <button class="ghost mini" id="btnIrPrimer" type="button">Crear el primer administrador</button>
-      </p>
     </div>
-
-    <!-- primer uso: definir el primer usuario / administrador -->
-    <div id="gAlta" hidden>
-      <h2 id="altaTitulo">Protege esta aplicación</h2>
-      <p class="sub" id="altaSub">Es la primera vez que se abre en este equipo. Crea un usuario y una contraseña para bloquear el acceso.</p>
-      <form id="formAlta" autocomplete="off">
-        <div class="gfield">
-          <label for="altaUsuario">Usuario</label>
-          <input id="altaUsuario" type="text" autocomplete="off" placeholder="auditor">
-        </div>
-        <div class="gfield">
-          <label for="altaClave">Contraseña (mínimo 8 caracteres, con letras y números)</label>
-          <input id="altaClave" type="password" autocomplete="new-password" placeholder="••••••••">
-          <div class="fuerza" id="fuerza"><i></i></div>
-        </div>
-        <div class="gfield">
-          <label for="altaClave2">Repite la contraseña</label>
-          <input id="altaClave2" type="password" autocomplete="new-password" placeholder="••••••••">
-        </div>
-        <button id="btnAlta" type="submit">Guardar y entrar</button>
-      </form>
-      <div class="msg" id="msgAlta"></div>
-      <p class="gnote" id="altaNota">Sin servidor central, la contraseña se guarda cifrada (resumen PBKDF2) en este navegador y el bloqueo es disuasorio: impide el uso casual, pero no cifra los PDF. Para seguridad real usa el servidor central.</p>
-      <p class="gnote" id="lineaVolverLogin" hidden>
-        <button class="ghost mini" id="btnVolverLogin" type="button">Ya tengo usuario: volver al acceso</button>
-      </p>
-    </div>
-  </div>
-</div>
-
-<!-- ================= CAMBIO DE CONTRASEÑA ================= -->
-<div class="ov" id="ovPw" hidden>
-  <div class="ovbox" style="height:auto;max-width:420px">
-    <div class="ovtop">
-      <div style="flex:1 1 auto"><h3>Cambiar contraseña</h3><p class="sub" id="pwSub"></p></div>
-      <button class="ovx" id="pwX" type="button" title="Cerrar">&times;</button>
-    </div>
-    <div style="padding:16px">
-      <form id="formPw" autocomplete="off">
-        <div class="gfield">
-          <label for="pwAct">Contraseña actual</label>
-          <input id="pwAct" type="password" autocomplete="current-password">
-        </div>
-        <div class="gfield">
-          <label for="pwNue">Contraseña nueva</label>
-          <input id="pwNue" type="password" autocomplete="new-password">
-        </div>
-        <div class="gfield">
-          <label for="pwNue2">Repite la contraseña nueva</label>
-          <input id="pwNue2" type="password" autocomplete="new-password">
-        </div>
-        <div class="actions">
-          <button id="pwOk" type="submit">Guardar</button>
-          <button class="ghost" id="pwCancel" type="button">Cancelar</button>
-        </div>
-      </form>
-      <div class="msg" id="msgPw"></div>
-    </div>
-  </div>
-</div>
-
-<!-- ================= GESTIÓN DE USUARIOS (solo administrador) ================= -->
-<div class="ov" id="ovUsr" hidden>
-  <div class="ovbox" style="height:auto;max-width:720px">
-    <div class="ovtop">
-      <div style="flex:1 1 auto">
-        <h3>Usuarios de la aplicación</h3>
-        <p class="sub">Crea las cuentas de tu equipo y activa o desactiva el acceso cuando lo necesites.</p>
-      </div>
-      <button class="ovx" id="usrX" type="button" title="Cerrar">&times;</button>
-    </div>
-    <div style="padding:16px;overflow:auto">
+    <div class="panel">
+      <div class="ptop"><h3>Usuarios y control de acceso</h3><span class="count" id="usrCount">0 usuarios</span></div>
       <div class="tablebox">
-        <table>
-          <thead><tr>
-            <th>Usuario</th><th>Permiso</th><th>Estado</th><th>Último acceso</th><th>Acciones</th>
-          </tr></thead>
-          <tbody id="usrTb"></tbody>
-        </table>
+        <table><thead><tr><th>Usuario</th><th>Rol</th><th>Estado</th><th>Último acceso</th><th></th></tr></thead>
+        <tbody id="usrTb"></tbody></table>
       </div>
-      <h2 style="margin-top:18px">Añadir una persona</h2>
+      <h3 style="margin-top:18px">Crear usuario</h3>
       <form id="formUsr" autocomplete="off">
-        <div class="fields">
-          <div>
-            <label for="nuUsuario">Usuario (letras, números, punto o guion)</label>
-            <input id="nuUsuario" type="text" autocomplete="off" placeholder="maria.gomez">
-          </div>
-          <div>
-            <label for="nuClave">Contraseña inicial (mínimo 8, con letras y números)</label>
-            <input id="nuClave" type="password" autocomplete="new-password" placeholder="••••••••">
-          </div>
-          <div>
-            <label for="nuRol">Permiso</label>
-            <select id="nuRol">
-              <option value="auditor">Auditor (carga y consulta)</option>
-              <option value="admin">Administrador (además gestiona usuarios)</option>
-            </select>
-          </div>
+        <div class="grid">
+          <div><label class="req">Usuario</label><input id="nuUsuario" placeholder="maria.gomez"></div>
+          <div><label class="req">Contraseña</label><input id="nuClave" type="password" placeholder="mínimo 8"></div>
+          <div><label>Rol</label><select id="nuRol"><option value="auditor">Auditor</option><option value="medico">Médico</option><option value="admin">Administrador</option></select></div>
         </div>
-        <div class="actions">
-          <button id="nuOk" type="submit">Crear usuario</button>
-          <button class="ghost" id="usrCerrar" type="button">Cerrar</button>
-        </div>
+        <div class="actions"><button class="btn" type="submit">Crear usuario</button><span class="msg" id="usrMsg"></span></div>
       </form>
-      <div class="msg" id="msgUsr"></div>
-      <div class="hint">Cada persona puede cambiar su propia contraseña desde el botón “Cambiar contraseña”. Si alguien la olvida, usa “Restablecer clave” y entrégasela por un medio seguro.</div>
+    </div>
+  </section>
+
+  <!-- ===================== MODAL NUEVA NOTA ===================== -->
+  <div class="overlay" id="ovNota" hidden>
+    <div class="modal">
+      <div class="mtop"><h3>Nueva nota clínica</h3><button class="mx" id="notaX" type="button">&times;</button></div>
+      <form id="formNota" autocomplete="off">
+        <div class="grid">
+          <div><label>Tipo de nota</label><select id="ntTipo"><option>Historia clínica</option><option>Evolución SOAP</option><option>Nota de enfermería</option><option>Terapia</option><option>Epicrisis</option></select></div>
+          <div><label class="req">Paciente</label><input id="ntPac" list="pacList" placeholder="Nombre del paciente"><datalist id="pacList"></datalist></div>
+          <div><label class="req">Documento</label><input id="ntDoc" inputmode="numeric"></div>
+          <div><label>Médico / profesional</label><input id="ntMed"></div>
+          <div class="wide"><label>Contenido de la nota</label><textarea id="ntTexto" rows="5" placeholder="S: ... O: ... A: ... P: ..."></textarea></div>
+        </div>
+        <div class="actions"><button class="btn" type="submit">Guardar nota</button><button class="btn ghost" id="notaCancel" type="button">Cancelar</button><span class="msg" id="ntMsg"></span></div>
+      </form>
     </div>
   </div>
-</div>
-
-<!-- Modal Anexar/Reemplazar -->
-<div id="modalRA" class="modal-overlay" hidden>
-  <div class="modal-box">
-    <div class="modal-title">⚠ ¿Qué desea hacer?</div>
-    <div class="modal-text" id="modalRA-text"></div>
-    <div class="modal-actions">
-      <button class="go" id="modalRA-add" type="button">⊕ Anexar</button>
-      <button id="modalRA-rep" type="button" style="background:#8e2f3c">↻ Reemplazar</button>
-      <button class="ghost" id="modalRA-cancel" type="button">✕ Cancelar</button>
-    </div>
-  </div>
-</div>
-
-<!-- Modal Documento del paciente (obligatorio) -->
-<div id="modalPac" class="modal-overlay" hidden>
-  <div class="modal-box">
-    <div class="modal-title">🩺 Documento del paciente</div>
-    <div class="modal-text">
-      Para guardar la carpeta <strong id="modalPac-carpeta"></strong> es
-      <strong>obligatorio</strong> escribir el número de documento del paciente.
-    </div>
-    <input id="modalPac-input" type="text" inputmode="numeric" placeholder="1234567890"
-           autocomplete="off" style="width:100%;margin-bottom:10px">
-    <div id="modalPac-err" class="modal-text" style="color:#ff8585;margin-bottom:12px;display:none"></div>
-    <div class="modal-actions">
-      <button class="go" id="modalPac-ok" type="button">✓ Guardar carpeta</button>
-      <button class="ghost" id="modalPac-cancel" type="button">✕ Cancelar</button>
-    </div>
-  </div>
-</div>
-
-<script src="pdfmerge.js"></script>
+</main>
 <script src="app.js"></script>
 </body>
 </html>
