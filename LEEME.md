@@ -68,6 +68,19 @@ filtro de profesional se llena solo con los nombres que ya figuran en las notas
 **descargar en PDF la historia de un solo profesional**. El profesional elegido
 queda escrito en el encabezado del PDF.
 
+El **Reporte de servicios clínicos** que se descarga desde este módulo ahora
+sale con el **mismo formato formal que la historia clínica**: encabezado de la
+IPS (con logo si se cargó), recuadro con los datos del paciente tomados de la
+**Admisión** (documento, sexo, fecha de nacimiento, dirección, teléfono, EPS,
+régimen) y, debajo, cada registro clínico en secciones.
+
+## Logo de la IPS (Config → Parámetros de la IPS)
+En el registro de la IPS puede **cargar un logo** (PNG o JPEG). Se guarda junto
+con el nombre, el NIT y el código de habilitación y aparece en el **encabezado
+de todos los PDF** (historia clínica, documentos aparte y reporte de servicios).
+Los documentos ya **no llevan ninguna marca del software**: muestran únicamente
+los datos de su IPS.
+
 ## Respaldo y traslado entre equipos (Config → Respaldo)
 Como la información se guarda en cada dispositivo, usa la pestaña **Respaldo**:
 - **Exportar respaldo**: descarga un archivo `.json` con usuarios, admisiones,

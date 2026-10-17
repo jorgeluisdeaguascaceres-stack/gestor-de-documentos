@@ -307,6 +307,15 @@
                 <div class="wide"><label>Nombre de la IPS</label><input id="ipsNombre" placeholder="IPS ..."></div>
                 <div><label>NIT</label><input id="ipsNit" inputmode="numeric" placeholder="900123456"></div>
                 <div><label>Código de habilitación</label><input id="ipsHab"></div>
+                <div class="wide">
+                  <label>Logo de la IPS (opcional)</label>
+                  <div class="firmarow">
+                    <input id="ipsLogoFile" type="file" accept="image/png,image/jpeg">
+                    <button class="btn ghost mini" id="ipsLogoQuitar" type="button">Quitar</button>
+                  </div>
+                  <img id="ipsLogoPrev" class="firmaprev" alt="Vista previa del logo" hidden>
+                  <span class="hint">Imagen PNG o JPEG (preferiblemente con fondo blanco). Aparecerá en el encabezado de los documentos PDF.</span>
+                </div>
               </div>
               <div class="actions"><button class="btn" type="submit">Guardar parámetros</button><span class="msg" id="ipsMsg"></span></div>
             </form>
