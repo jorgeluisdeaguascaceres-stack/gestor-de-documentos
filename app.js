@@ -55,7 +55,20 @@ function setUsuarios(l){ store.set('usuarios', l); }
 function necesitaMaestro(){ const l=usuarios(); return l.length===0 || !l.some(u=>u.rol==='maestro' && u.hash); }
 function sesionUser(){ const s=store.get('sesion',null); if(!s) return null; const u=usuarios().find(x=>x.usuario===s.usuario); return (u && u.activo && u.hash)?u:null; }
 let CURRENT = null;
-function can(mod){ return !!(CURRENT && CURRENT.perms && CURRENT.perms[mod]); }
+function can(mod){ if(CURRENT && CURRENT.rol==='maestro') return true; return !!(CURRENT && CURRENT.perms && CURRENT.perms[mod]); }
+/* el maestro SIEMPRE tiene todos los permisos; a los demás se les completan las llaves faltantes
+   conservando lo que el maestro ya les concedió */
+function permsCompletos(rol, base){
+  const d = defaultPerms(rol);
+  const out = Object.assign({}, d, base||{});
+  if(rol==='maestro'){ Object.keys(d).forEach(k=> out[k]=true); }
+  return out;
+}
+function repararPerms(){
+  const l=usuarios(); let ch=false;
+  l.forEach(u=>{ const nuevo=permsCompletos(u.rol, u.perms); if(JSON.stringify(nuevo)!==JSON.stringify(u.perms||{})){ u.perms=nuevo; ch=true; } });
+  if(ch) setUsuarios(l);
+}
 
 async function doLogin(usuario, clave){
   const u = usuarios().find(x=>x.usuario===usuario.toLowerCase());
@@ -436,7 +449,7 @@ function renderUsr(){
     MODS.forEach(m=>{
       const c=document.createElement('td'); c.className='csw';
       const lab=document.createElement('label'); lab.className='sw';
-      const inp=document.createElement('input'); inp.type='checkbox'; inp.checked=!!(u.perms&&u.perms[m]);
+      const inp=document.createElement('input'); inp.type='checkbox'; inp.checked=(u.rol==='maestro')?true:!!(u.perms&&u.perms[m]);
       if(u.rol==='maestro') inp.disabled=true; /* el maestro conserva todos los permisos */
       inp.addEventListener('change', ()=>{ const l=usuarios(); const t=l.find(x=>x.id===u.id); if(!t) return; if(!t.perms) t.perms={}; t.perms[m]=inp.checked; setUsuarios(l); });
       const tk=document.createElement('span'); tk.className='track';
@@ -445,7 +458,7 @@ function renderUsr(){
     /* columna Editar admisiones (permiso independiente) */
     const ce=document.createElement('td'); ce.className='csw';
     const le=document.createElement('label'); le.className='sw';
-    const ie=document.createElement('input'); ie.type='checkbox'; ie.checked=!!(u.perms&&u.perms.editar);
+    const ie=document.createElement('input'); ie.type='checkbox'; ie.checked=(u.rol==='maestro')?true:!!(u.perms&&u.perms.editar);
     if(u.rol==='maestro') ie.disabled=true;
     ie.addEventListener('change', ()=>{ const l=usuarios(); const t=l.find(x=>x.id===u.id); if(!t) return; if(!t.perms) t.perms={}; t.perms.editar=ie.checked; setUsuarios(l); });
     const tke=document.createElement('span'); tke.className='track';
@@ -453,7 +466,7 @@ function renderUsr(){
     /* columna Eliminar notas clínicas (permiso independiente) */
     const cx=document.createElement('td'); cx.className='csw';
     const lx=document.createElement('label'); lx.className='sw';
-    const ix=document.createElement('input'); ix.type='checkbox'; ix.checked=!!(u.perms&&u.perms.eliminar);
+    const ix=document.createElement('input'); ix.type='checkbox'; ix.checked=(u.rol==='maestro')?true:!!(u.perms&&u.perms.eliminar);
     if(u.rol==='maestro') ix.disabled=true;
     ix.addEventListener('change', ()=>{ const l=usuarios(); const t=l.find(x=>x.id===u.id); if(!t) return; if(!t.perms) t.perms={}; t.perms.eliminar=ix.checked; setUsuarios(l); });
     const tkx=document.createElement('span'); tkx.className='track';
@@ -490,6 +503,7 @@ $('formUsr').addEventListener('submit', async (e)=>{
 function init(){
   const now = new Date(); now.setMinutes(now.getMinutes()-now.getTimezoneOffset());
   $('admFecha').value = now.toISOString().slice(0,16);
+  repararPerms();
   const u = sesionUser();
   if(u){ entrar(u); } else { mostrarGate(); }
 }
