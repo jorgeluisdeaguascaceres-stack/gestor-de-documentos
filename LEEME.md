@@ -10,6 +10,17 @@ App web limpia inspirada en el diseño y colores de tu sistema real NEXUSMED
 3. **Configuraciones** – parámetros de la IPS + gestión de usuarios (crear, activar/
    desactivar, eliminar, con roles Administrador / Médico / Auditor).
 
+## Historia clínica para la EPS (Registro Médico → Historia clínica)
+Al crear una **Historia clínica**, el formulario se abre con los apartados del
+formato estándar: Motivo de consulta, Enfermedad actual, Signos vitales (con
+IMC calculado automáticamente), Antecedentes, Examen físico, Diagnóstico, Plan
+y Paraclínicos. Los datos del paciente (sexo, fecha de nacimiento, dirección,
+teléfono, EPS) se toman de su **Admisión**.
+
+Desde la lista de notas, el botón **PDF EPS** genera la historia clínica en
+PDF con el formato institucional (encabezado de la IPS, recuadro del paciente,
+secciones y firma del profesional), lista para enviar a la EPS.
+
 ## Respaldo y traslado entre equipos (Config → Respaldo)
 Como la información se guarda en cada dispositivo, usa la pestaña **Respaldo**:
 - **Exportar respaldo**: descarga un archivo `.json` con usuarios, admisiones,

@@ -288,6 +288,11 @@ function renderReg(){
     const be=document.createElement('button'); be.className='btn ghost mini'; be.textContent='Editar';
     be.addEventListener('click', ()=> abrirNota(n.id));
     acc.appendChild(be);
+    if(n.tipo==='Historia clínica'){
+      const bp=document.createElement('button'); bp.className='btn mini'; bp.textContent='PDF EPS'; bp.style.marginLeft='6px';
+      bp.addEventListener('click', ()=> historiaClinicaPDF(n.id));
+      acc.appendChild(bp);
+    }
     if(can('eliminar')){
       const bd=document.createElement('button'); bd.className='btn del mini'; bd.textContent='Eliminar'; bd.style.marginLeft='6px';
       bd.addEventListener('click', ()=>{ if(confirm('¿Eliminar esta nota?')){ store.set('notas', store.get('notas',[]).filter(x=>x.id!==n.id)); renderReg(); } });
@@ -298,20 +303,55 @@ function renderReg(){
 }
 
 /* ---- modal de nota (crear / editar) ---- */
+/* campos del formulario estructurado de Historia Clínica */
+const HC_FIELDS = ['hcMotivo','hcEnf','hcTA','hcFC','hcFR','hcT','hcSat','hcPeso','hcTalla','hcIMC',
+  'hcDxNut','hcAntPer','hcAntFam','hcAlerg','hcQuir','hcGineco','hcExGen','hcExCab','hcExTorax',
+  'hcExAbd','hcExGen2','hcExExt','hcExSNC','hcExPiel','hcDx','hcPlan','hcPara'];
+const esHC = (tipo)=> tipo==='Historia clínica';
+function hcToggle(tipo){
+  const on=esHC(tipo);
+  const hc=$('ntHC'), simple=$('ntSimpleBox');
+  if(hc) hc.hidden=!on;
+  if(simple) simple.hidden=on;
+  const modal=$('ovNota')&&$('ovNota').querySelector('.modal');
+  if(modal) modal.classList.toggle('hc', on);
+}
+function hcFill(hc){ hc=hc||{}; HC_FIELDS.forEach(id=>{ const el=$(id); if(el) el.value=hc[id]||''; }); }
+function hcClear(){ HC_FIELDS.forEach(id=>{ const el=$(id); if(el) el.value=''; }); }
+function hcCollect(){ const o={}; HC_FIELDS.forEach(id=>{ const el=$(id); o[id]=el?(el.value||'').trim():''; }); return o; }
+function hcCalcIMC(){
+  const p=parseFloat(($('hcPeso').value||'').replace(',','.'));
+  const t=parseFloat(($('hcTalla').value||'').replace(',','.'));
+  if(p>0 && t>0){ const m=t/100; const v=p/(m*m); $('hcIMC').value=isFinite(v)?v.toFixed(1):''; }
+  else { $('hcIMC').value=''; }
+}
+/* resumen de texto para la lista (vista de tabla) a partir de la HC */
+function hcResumen(hc){
+  hc=hc||{};
+  const dx=(hc.hcDx||'').split(/\n+/).filter(Boolean).join('; ');
+  return [hc.hcMotivo?('Motivo: '+hc.hcMotivo):'', dx?('Dx: '+dx):''].filter(Boolean).join('  |  ') || '(historia clínica)';
+}
+(function(){
+  ['hcPeso','hcTalla'].forEach(id=>{ const el=$(id); if(el) el.addEventListener('input', hcCalcIMC); });
+})();
+
 function abrirNota(id){
   editNotaId = id || null;
   flash($('ntMsg'),'');
+  hcClear();
   if(editNotaId){
     const n=store.get('notas',[]).find(x=>x.id===editNotaId); if(!n){ return; }
-    $('notaTit').textContent='Editar nota clínica';
+    $('notaTit').textContent='Editar '+(n.tipo||'nota').toLowerCase();
     $('ntTipo').value=n.tipo; $('ntPac').value=n.pac||'—'; $('ntDoc').value=n.doc||'';
     $('ntMed').value=n.medico||''; $('ntTexto').value=n.texto||''; $('ntFecha').value=isoToLocalInput(n.fecha);
+    hcToggle(n.tipo); if(esHC(n.tipo)) hcFill(n.hc);
     $('notaGuardar').textContent='Actualizar nota';
   } else {
     if(!regPac){ flash($('regMsg'),'Primero busque y seleccione un paciente.','err'); return; }
     $('notaTit').textContent='Nueva '+(regTipo||'nota').toLowerCase();
     $('ntTipo').value=regTipo; $('ntPac').value=regPac.nombre||'—'; $('ntDoc').value=regPac.doc;
     $('ntMed').value=(CURRENT&&(CURRENT.nombre||CURRENT.usuario))||''; $('ntTexto').value=''; $('ntFecha').value=isoToLocalInput();
+    hcToggle(regTipo);
     $('notaGuardar').textContent='Guardar nota';
   }
   $('ovNota').hidden=false; setTimeout(()=>$('ntMed').focus(),50);
@@ -323,17 +363,27 @@ $('notaCancel').addEventListener('click', cerrarNota);
 $('ovNota').addEventListener('click', (e)=>{ if(e.target===$('ovNota')) cerrarNota(); });
 $('formNota').addEventListener('submit', (e)=>{
   e.preventDefault();
-  const texto=$('ntTexto').value.trim();
-  if(!texto){ flash($('ntMsg'),'Escribe el contenido de la nota.','err'); return; }
+  const tipo=$('ntTipo').value;
+  let texto, hc=null;
+  if(esHC(tipo)){
+    hc=hcCollect();
+    if(!hc.hcMotivo && !hc.hcEnf){ flash($('ntMsg'),'Escriba al menos el motivo o la enfermedad actual.','err'); return; }
+    texto=hcResumen(hc);
+  } else {
+    texto=$('ntTexto').value.trim();
+    if(!texto){ flash($('ntMsg'),'Escribe el contenido de la nota.','err'); return; }
+  }
   if(editNotaId){
     const l=store.get('notas',[]); const n=l.find(x=>x.id===editNotaId);
     if(!n){ cerrarNota(); renderReg(); return; }
     n.medico=$('ntMed').value.trim(); n.texto=texto; n.fecha=localInputToIso($('ntFecha').value);
+    if(esHC(tipo)) n.hc=hc; else delete n.hc;
     n.editadoPor=(CURRENT&&CURRENT.usuario)||''; n.editadoEl=new Date().toISOString();
     store.set('notas',l);
   } else {
     const prof=CURRENT||{};
-    const nota={ id:uid(), fecha:localInputToIso($('ntFecha').value), creadoEl:new Date().toISOString(), tipo:$('ntTipo').value, pac:$('ntPac').value.trim(), doc:$('ntDoc').value.trim(), medico:$('ntMed').value.trim(), especialidad:prof.especialidad||'', registro:prof.registro||'', firma:prof.firma||'', texto, creadoPor:(CURRENT&&CURRENT.usuario)||'' };
+    const nota={ id:uid(), fecha:localInputToIso($('ntFecha').value), creadoEl:new Date().toISOString(), tipo:tipo, pac:$('ntPac').value.trim(), doc:$('ntDoc').value.trim(), medico:$('ntMed').value.trim(), especialidad:prof.especialidad||'', registro:prof.registro||'', firma:prof.firma||'', texto, creadoPor:(CURRENT&&CURRENT.usuario)||'' };
+    if(esHC(tipo)) nota.hc=hc;
     const l=store.get('notas',[]); l.push(nota); store.set('notas',l);
   }
   cerrarNota(); renderReg();
@@ -443,6 +493,158 @@ function consultaPDF(){
   const safe=(nombre||'paciente').replace(/[^a-z0-9]+/gi,'_').replace(/^_+|_+$/g,'').toLowerCase();
   d.save('consulta_'+(doc||'doc')+'_'+safe+'.pdf');
   flash($('csMsg'),'PDF generado.','ok');
+}
+
+/* obtiene la admisión (datos demográficos) de un paciente por documento */
+function admisionPorDoc(doc){
+  doc=(doc||'').trim();
+  return store.get('admisiones',[]).find(x=>(x.doc||'').trim()===doc) || null;
+}
+
+/* ============================================================
+   PDF HISTORIA CLÍNICA (formato para envío a la EPS)
+   Reproduce la estructura estándar: encabezado IPS + datos del
+   paciente + secciones + firma del profesional.
+   ============================================================ */
+function historiaClinicaPDF(id){
+  const n=store.get('notas',[]).find(x=>x.id===id);
+  if(!n){ return; }
+  if(!(window.jspdf && window.jspdf.jsPDF)){ flash($('regMsg'),'No se pudo cargar el generador de PDF.','err'); return; }
+  const { jsPDF } = window.jspdf;
+  const d = new jsPDF({ unit:'pt', format:'a4' });
+  const ml=42, mr=42, mt=46; const pw=d.internal.pageSize.getWidth(), ph=d.internal.pageSize.getHeight();
+  const ancho = pw-ml-mr; let y=mt;
+  const ips=store.get('ips',{});
+  const a=admisionPorDoc(n.doc)||{};
+  const hc=n.hc||{};
+  const INK=[20,28,40], GRIS=[90,100,115], LINEA=[120,135,150];
+
+  function nl(h){ if(y+h > ph-56){ d.addPage(); y=mt; } }
+  /* banda de sección */
+  function band(titulo){
+    nl(26); y+=4;
+    d.setFillColor(11,22,34); d.setDrawColor(11,22,34);
+    d.rect(ml, y-11, ancho, 17, 'F');
+    d.setFont('helvetica','bold'); d.setFontSize(9.5); d.setTextColor(255,255,255);
+    d.text(titulo.toUpperCase(), ml+6, y+1); y+=16;
+    d.setTextColor(INK[0],INK[1],INK[2]);
+  }
+  /* campo etiqueta + valor (multilínea) */
+  function campo(label, valor, indentLabel){
+    valor=(valor==null||valor==='')?'—':String(valor);
+    d.setFont('helvetica','bold'); d.setFontSize(9); d.setTextColor(60,72,88);
+    const lab=(label?label+': ':'');
+    const labW=d.getTextWidth(lab);
+    d.setFont('helvetica','normal'); d.setTextColor(INK[0],INK[1],INK[2]);
+    const lineas=d.splitTextToSize(valor, ancho-labW-10);
+    nl(lineas.length*12+4);
+    if(lab){ d.setFont('helvetica','bold'); d.setTextColor(60,72,88); d.text(lab, ml+4, y); }
+    d.setFont('helvetica','normal'); d.setTextColor(INK[0],INK[1],INK[2]);
+    lineas.forEach((ln,i)=>{ d.text(ln, ml+4+(i===0?labW:0), y); y+=12; });
+    y+=2;
+  }
+
+  /* ---------- encabezado ---------- */
+  d.setFont('helvetica','bold'); d.setFontSize(15); d.setTextColor(11,22,34);
+  d.text((ips.nombre||'NEXUSMED · IPS'), ml, y); y+=16;
+  d.setFont('helvetica','normal'); d.setFontSize(8.5); d.setTextColor(GRIS[0],GRIS[1],GRIS[2]);
+  const sub=[ips.nit?('NIT '+ips.nit):'', ips.hab?('Habilitación '+ips.hab):''].filter(Boolean).join('     ·     ');
+  if(sub){ d.text(sub, ml, y); y+=12; }
+  d.setDrawColor(LINEA[0],LINEA[1],LINEA[2]); d.setLineWidth(0.8); d.line(ml,y,pw-mr,y); y+=4;
+  d.setFont('helvetica','bold'); d.setFontSize(11.5); d.setTextColor(11,22,34);
+  d.text('HISTORIA CLÍNICA – CONSULTA EXTERNA', pw/2, y+12, {align:'center'}); y+=22;
+
+  /* ---------- datos del paciente (recuadro) ---------- */
+  const nombre=n.pac || nombrePaciente(a) || '—';
+  const sexo=a.sexo||'—'; const nac=a.nac? a.nac : '—';
+  const tipoDoc=a.tipoDoc?(a.tipoDoc+' '):'';
+  const boxTop=y;
+  y+=12;
+  const colL=ml+6, colR=ml+ancho/2+4;
+  function par(xl, label, val){
+    d.setFont('helvetica','bold'); d.setFontSize(8.5); d.setTextColor(60,72,88);
+    d.text(label+': ', xl, y);
+    const w=d.getTextWidth(label+': ');
+    d.setFont('helvetica','normal'); d.setTextColor(INK[0],INK[1],INK[2]);
+    d.text(String(val||'—'), xl+w, y);
+  }
+  par(colL,'Paciente',nombre); par(colR,'Documento',tipoDoc+(n.doc||'')); y+=13;
+  par(colL,'Sexo',sexo); par(colR,'Fecha nac.',nac); y+=13;
+  par(colL,'Dirección',a.dir||'—'); par(colR,'Teléfono',a.tel||'—'); y+=13;
+  par(colL,'EPS / Aseguradora',a.eps||'—'); par(colR,'Régimen',a.regimen||'—'); y+=13;
+  par(colL,'Fecha de atención',fmtFecha(n.fecha)); par(colR,'Profesional',n.medico||'—'); y+=6;
+  d.setDrawColor(LINEA[0],LINEA[1],LINEA[2]); d.setLineWidth(0.8);
+  d.rect(ml, boxTop, ancho, y-boxTop);
+  y+=8;
+
+  /* ---------- secciones ---------- */
+  band('Motivo de la consulta');
+  campo('', hc.hcMotivo);
+
+  band('Enfermedad actual');
+  campo('', hc.hcEnf);
+
+  band('Revisión por sistemas · Signos vitales');
+  const vit=[['TA',hc.hcTA,'mmHg'],['FC',hc.hcFC,'lpm'],['FR',hc.hcFR,'rpm'],['Temp',hc.hcT,'°C'],
+             ['SatO2',hc.hcSat,'%'],['Peso',hc.hcPeso,'kg'],['Talla',hc.hcTalla,'cm'],['IMC',hc.hcIMC,'']];
+  const vitTxt=vit.filter(v=>v[1]).map(v=> v[0]+': '+v[1]+(v[2]?(' '+v[2]):'')).join('     ');
+  campo('', vitTxt || '—');
+  if(hc.hcDxNut) campo('Dx nutricional', hc.hcDxNut);
+
+  band('Antecedentes');
+  campo('Personales', hc.hcAntPer);
+  campo('Familiares', hc.hcAntFam);
+  campo('Alergias', hc.hcAlerg);
+  campo('Quirúrgicos', hc.hcQuir);
+  if(hc.hcGineco) campo('Gineco-obstétricos', hc.hcGineco);
+
+  band('Examen físico');
+  campo('Estado general y conciencia', hc.hcExGen);
+  campo('Cabeza, cara y cuello', hc.hcExCab);
+  campo('Tórax', hc.hcExTorax);
+  campo('Abdomen', hc.hcExAbd);
+  if(hc.hcExGen2) campo('Genitales', hc.hcExGen2);
+  campo('Extremidades', hc.hcExExt);
+  campo('Sistema nervioso central', hc.hcExSNC);
+  campo('Piel y faneras', hc.hcExPiel);
+
+  band('Diagnóstico');
+  (hc.hcDx||'').split(/\n+/).filter(Boolean).forEach((dx,i)=> campo('', (i+1)+'. '+dx));
+  if(!(hc.hcDx||'').trim()) campo('', '—');
+
+  band('Plan');
+  campo('', hc.hcPlan);
+
+  if((hc.hcPara||'').trim()){ band('Paraclínicos'); campo('', hc.hcPara); }
+
+  /* ---------- firma del profesional ---------- */
+  nl(80); y+=18;
+  const fx=ml+4;
+  if(n.firma && /^data:image\/(png|jpeg)/.test(n.firma)){
+    try{
+      const fmt=/^data:image\/png/.test(n.firma)?'PNG':'JPEG';
+      let fw=150, fh=52;
+      try{ const pr=d.getImageProperties(n.firma); if(pr&&pr.width&&pr.height){ fh=Math.min(56, fw*pr.height/pr.width); } }catch(_){}
+      d.addImage(n.firma, fmt, fx, y-fh, fw, fh);
+    }catch(_){ }
+  }
+  d.setDrawColor(INK[0],INK[1],INK[2]); d.setLineWidth(0.8); d.line(fx, y, fx+200, y); y+=12;
+  d.setFont('helvetica','bold'); d.setFontSize(9.5); d.setTextColor(INK[0],INK[1],INK[2]);
+  d.text((n.medico||'—'), fx, y); y+=12;
+  d.setFont('helvetica','normal'); d.setFontSize(8.5); d.setTextColor(GRIS[0],GRIS[1],GRIS[2]);
+  if(n.especialidad){ d.text(n.especialidad, fx, y); y+=11; }
+  if(n.registro){ d.text('Registro médico: '+n.registro, fx, y); y+=11; }
+
+  /* ---------- pie con numeración ---------- */
+  const tot=d.internal.getNumberOfPages();
+  for(let p=1;p<=tot;p++){
+    d.setPage(p); d.setFontSize(7.5); d.setTextColor(150,160,172);
+    d.text((ips.nombre||'NEXUSMED')+' · Historia clínica · página '+p+' de '+tot, ml, ph-26);
+    d.text('Documento generado el '+fmtFecha(new Date().toISOString()), pw-mr, ph-26, {align:'right'});
+  }
+  const safe=(nombre||'paciente').replace(/[^a-z0-9]+/gi,'_').replace(/^_+|_+$/g,'').toLowerCase();
+  d.save('historia_clinica_'+(n.doc||'doc')+'_'+safe+'.pdf');
+  flash($('regMsg'),'Historia clínica en PDF generada.','ok');
 }
 
 /* ============================================================

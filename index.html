@@ -327,8 +327,64 @@
           <div><label>Documento</label><input id="ntDoc" readonly></div>
           <div><label>Médico / profesional</label><input id="ntMed" placeholder="Dr(a). ..."></div>
           <div><label class="req">Fecha y hora de la nota</label><input id="ntFecha" type="datetime-local"><span class="hint">Se llena con la hora actual. Puede cambiarla para registrar una nota de días anteriores.</span></div>
-          <div class="wide"><label class="req">Contenido de la nota</label><textarea id="ntTexto" rows="6" placeholder="S: ... O: ... A: ... P: ..."></textarea></div>
+          <div class="wide" id="ntSimpleBox"><label class="req">Contenido de la nota</label><textarea id="ntTexto" rows="6" placeholder="S: ... O: ... A: ... P: ..."></textarea></div>
         </div>
+
+        <!-- Formulario estructurado de HISTORIA CLÍNICA (formato EPS) -->
+        <div id="ntHC" hidden>
+          <h4 class="sechc">Motivo de la consulta</h4>
+          <div class="grid">
+            <div class="wide"><label>Motivo</label><textarea id="hcMotivo" rows="2" placeholder="Motivo de la consulta..."></textarea></div>
+          </div>
+          <h4 class="sechc">Enfermedad actual</h4>
+          <div class="grid">
+            <div class="wide"><label>Enfermedad actual</label><textarea id="hcEnf" rows="4" placeholder="Descripción de la enfermedad actual..."></textarea></div>
+          </div>
+          <h4 class="sechc">Revisión por sistemas · Signos vitales</h4>
+          <div class="grid vit">
+            <div><label>TA (mmHg)</label><input id="hcTA" placeholder="120/80"></div>
+            <div><label>FC (lpm)</label><input id="hcFC" inputmode="numeric" placeholder="80"></div>
+            <div><label>FR (rpm)</label><input id="hcFR" inputmode="numeric" placeholder="16"></div>
+            <div><label>Temp (°C)</label><input id="hcT" inputmode="decimal" placeholder="36.5"></div>
+            <div><label>SatO2 (%)</label><input id="hcSat" inputmode="numeric" placeholder="97"></div>
+            <div><label>Peso (kg)</label><input id="hcPeso" inputmode="decimal" placeholder="70"></div>
+            <div><label>Talla (cm)</label><input id="hcTalla" inputmode="decimal" placeholder="170"></div>
+            <div><label>IMC</label><input id="hcIMC" inputmode="decimal" placeholder="auto" readonly></div>
+            <div class="wide"><label>Dx nutricional / revisión por sistemas</label><input id="hcDxNut" placeholder="Ej. Normal / Delgadez"></div>
+          </div>
+          <h4 class="sechc">Antecedentes</h4>
+          <div class="grid">
+            <div class="wide"><label>Personales</label><textarea id="hcAntPer" rows="2"></textarea></div>
+            <div><label>Familiares</label><textarea id="hcAntFam" rows="2"></textarea></div>
+            <div><label>Alergias</label><textarea id="hcAlerg" rows="2"></textarea></div>
+            <div><label>Quirúrgicos</label><textarea id="hcQuir" rows="2"></textarea></div>
+            <div><label>Gineco-obstétricos</label><textarea id="hcGineco" rows="2"></textarea></div>
+          </div>
+          <h4 class="sechc">Examen físico</h4>
+          <div class="grid">
+            <div><label>Estado general y conciencia</label><textarea id="hcExGen" rows="2"></textarea></div>
+            <div><label>Cabeza, cara y cuello</label><textarea id="hcExCab" rows="2"></textarea></div>
+            <div><label>Tórax</label><textarea id="hcExTorax" rows="2"></textarea></div>
+            <div><label>Abdomen</label><textarea id="hcExAbd" rows="2"></textarea></div>
+            <div><label>Genitales</label><textarea id="hcExGen2" rows="2"></textarea></div>
+            <div><label>Extremidades</label><textarea id="hcExExt" rows="2"></textarea></div>
+            <div><label>Sistema nervioso central</label><textarea id="hcExSNC" rows="2"></textarea></div>
+            <div><label>Piel y faneras</label><textarea id="hcExPiel" rows="2"></textarea></div>
+          </div>
+          <h4 class="sechc">Diagnóstico</h4>
+          <div class="grid">
+            <div class="wide"><label>Diagnósticos (uno por línea)</label><textarea id="hcDx" rows="3" placeholder="Dx 1&#10;Dx 2"></textarea></div>
+          </div>
+          <h4 class="sechc">Plan</h4>
+          <div class="grid">
+            <div class="wide"><label>Plan de manejo</label><textarea id="hcPlan" rows="3"></textarea></div>
+          </div>
+          <h4 class="sechc">Paraclínicos</h4>
+          <div class="grid">
+            <div class="wide"><label>Paraclínicos</label><textarea id="hcPara" rows="2"></textarea></div>
+          </div>
+        </div>
+
         <div class="actions"><button class="btn" id="notaGuardar" type="submit">Guardar nota</button><button class="btn ghost" id="notaCancel" type="button">Cancelar</button><span class="msg" id="ntMsg"></span></div>
       </form>
     </div>

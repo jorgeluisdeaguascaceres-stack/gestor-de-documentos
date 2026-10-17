@@ -73,6 +73,9 @@ body{
 /* ---------- formularios ---------- */
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}
 .grid .wide{grid-column:1/-1}
+.grid.vit{grid-template-columns:repeat(auto-fit,minmax(120px,1fr))}
+h4.sechc{margin:18px 0 2px;font-size:12px;font-weight:800;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--acc);border-bottom:1px solid var(--line2);padding-bottom:5px}
 label{display:block;font-size:12.5px;color:var(--dim);margin-bottom:5px}
 .req::after{content:" *";color:var(--err)}
 input,select,textarea{width:100%;background:var(--bg2);border:1px solid var(--line);color:var(--txt);
@@ -116,6 +119,7 @@ td.right{text-align:right;white-space:nowrap}
 .modal{width:min(620px,100%);background:linear-gradient(160deg,var(--panel),var(--panel2));
   border:1px solid var(--line2);border-radius:var(--r);padding:22px 24px;
   box-shadow:0 24px 70px rgba(0,0,0,.55);max-height:90vh;overflow:auto}
+.modal.hc{width:min(920px,100%)}
 .mtop{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
 .mtop h3{margin:0;font-size:17px;color:var(--txt);text-transform:none;letter-spacing:0}
 .mx{cursor:pointer;background:transparent;border:1px solid var(--line2);color:var(--txt);
