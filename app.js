@@ -522,10 +522,71 @@ function renderUsrList(){
 function cfgTab(name){
   document.querySelectorAll('.cfgtab').forEach(b=>b.classList.toggle('active', b.getAttribute('data-cfg')===name));
   document.querySelectorAll('.cfgpane').forEach(p=>{ p.hidden = (p.id!=='cfg-'+name); });
+  if(name==='respaldo' && typeof bkRefrescar==='function') bkRefrescar();
 }
 (function(){
   const nav=$('cfgNav');
   if(nav) nav.addEventListener('click', (e)=>{ const b=e.target.closest('[data-cfg]'); if(b) cfgTab(b.getAttribute('data-cfg')); });
+})();
+
+/* ============================================================
+   RESPALDO · Exportar / Importar (traslado manual entre equipos)
+   No es sincronización ni servidor: genera/lee un archivo JSON.
+   ============================================================ */
+const BK_CLAVES = ['usuarios','admisiones','notas','ips'];
+
+function bkInfoTexto(){
+  const u=store.get('usuarios',[]).length;
+  const a=store.get('admisiones',[]).length;
+  const n=store.get('notas',[]).length;
+  return 'En este dispositivo hay '+u+' usuario(s), '+a+' admisión(es) y '+n+' registro(s) médico(s).';
+}
+function bkRefrescar(){ const el=$('bkInfo'); if(el) el.textContent=bkInfoTexto(); }
+
+function exportarRespaldo(){
+  const datos={};
+  BK_CLAVES.forEach(k=>{ datos[k]=store.get(k, Array.isArray(store.get(k,null))?[]:null); });
+  const paquete={ app:'NEXUSMED', tipo:'respaldo', version:1, generadoEl:new Date().toISOString(), datos:datos };
+  const texto=JSON.stringify(paquete, null, 2);
+  const blob=new Blob([texto], {type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const sello=new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+  a.href=url; a.download='nexusmed-respaldo-'+sello+'.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 1500);
+  flash($('bkMsg'),'Respaldo exportado. Envíe el archivo al otro equipo e impórtelo allá.','ok');
+}
+
+function importarRespaldo(texto){
+  let paquete;
+  try{ paquete=JSON.parse(texto); }catch(e){ flash($('bkMsg'),'El archivo no es un respaldo válido.','err'); return; }
+  if(!paquete || paquete.tipo!=='respaldo' || !paquete.datos){ flash($('bkMsg'),'El archivo no corresponde a un respaldo de NEXUSMED.','err'); return; }
+  const d=paquete.datos;
+  const resumen='Se reemplazarán los datos de ESTE dispositivo por los del respaldo:\n\n'
+    +'• Usuarios: '+((d.usuarios||[]).length)+'\n'
+    +'• Admisiones: '+((d.admisiones||[]).length)+'\n'
+    +'• Registros médicos: '+((d.notas||[]).length)+'\n\n'
+    +'Esta acción no se puede deshacer. ¿Continuar?';
+  if(!confirm(resumen)) return;
+  BK_CLAVES.forEach(k=>{ if(d[k]!==undefined && d[k]!==null) store.set(k, d[k]); });
+  flash($('bkMsg'),'Respaldo importado. La aplicación se recargará para aplicar los cambios.','ok');
+  setTimeout(()=>location.reload(), 1200);
+}
+
+(function(){
+  const bEx=$('btnExport'), bPick=$('btnImportPick'), file=$('fileImport');
+  if(bEx) bEx.addEventListener('click', exportarRespaldo);
+  if(bPick && file){
+    bPick.addEventListener('click', ()=> file.click());
+    file.addEventListener('change', ()=>{
+      const f=file.files && file.files[0]; if(!f) return;
+      const r=new FileReader();
+      r.onload=()=>{ importarRespaldo(String(r.result||'')); file.value=''; };
+      r.onerror=()=>{ flash($('bkMsg'),'No se pudo leer el archivo.','err'); file.value=''; };
+      r.readAsText(f);
+    });
+  }
 })();
 /* -- poblar lista de especialidades y manejar la firma digital -- */
 (function(){

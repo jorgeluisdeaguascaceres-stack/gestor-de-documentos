@@ -10,6 +10,18 @@ App web limpia inspirada en el diseño y colores de tu sistema real NEXUSMED
 3. **Configuraciones** – parámetros de la IPS + gestión de usuarios (crear, activar/
    desactivar, eliminar, con roles Administrador / Médico / Auditor).
 
+## Respaldo y traslado entre equipos (Config → Respaldo)
+Como la información se guarda en cada dispositivo, usa la pestaña **Respaldo**:
+- **Exportar respaldo**: descarga un archivo `.json` con usuarios, admisiones,
+  registros médicos y parámetros de la IPS.
+- **Importar respaldo**: en el otro PC o celular, carga ese `.json` y los datos
+  quedan disponibles allí.
+
+> Es un **traslado manual** (tú envías el archivo por correo, WhatsApp o USB).
+> NO es sincronización automática en la nube: si quieres que los documentos
+> aparezcan solos en todos los dispositivos (como el “1 GB gratis”), hay que
+> conectar un servidor real (p. ej. Supabase/Firebase).
+
 ## Cómo usarla
 Abre `index.html` con doble clic en Chrome o Edge. Todo funciona sin internet.
 Los datos se guardan localmente en el navegador (localStorage) — es un prototipo

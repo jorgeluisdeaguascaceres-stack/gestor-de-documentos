@@ -229,6 +229,7 @@
         <button class="cfgtab active" data-cfg="usuarios" type="button">Registro de usuario</button>
         <button class="cfgtab" data-cfg="matriz" type="button">Matriz de permisos</button>
         <button class="cfgtab" data-cfg="ips" type="button">Registro de la IPS</button>
+        <button class="cfgtab" data-cfg="respaldo" type="button">Respaldo</button>
       </nav>
       <div class="cfgbody">
 
@@ -293,6 +294,21 @@
               </div>
               <div class="actions"><button class="btn" type="submit">Guardar parámetros</button><span class="msg" id="ipsMsg"></span></div>
             </form>
+          </div>
+        </div>
+
+        <!-- Apartado: Respaldo (exportar / importar) -->
+        <div class="cfgpane" id="cfg-respaldo" hidden>
+          <div class="panel">
+            <h3>Respaldo y traslado de datos</h3>
+            <p class="hint">Como la información se guarda en este dispositivo, use el respaldo para <b>pasar todo a otro PC o celular</b>. Exporte aquí, envíe el archivo al otro equipo (correo, WhatsApp, USB) e impórtelo allá. <b>No sincroniza solo</b> y no reemplaza a un servidor; es un traslado manual.</p>
+            <div class="actions" style="gap:10px;flex-wrap:wrap">
+              <button class="btn" id="btnExport" type="button">Exportar respaldo</button>
+              <button class="btn ghost" id="btnImportPick" type="button">Importar respaldo</button>
+              <input id="fileImport" type="file" accept="application/json,.json" hidden>
+              <span class="msg" id="bkMsg"></span>
+            </div>
+            <p class="hint" id="bkInfo" style="margin-top:12px"></p>
           </div>
         </div>
 
