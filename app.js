@@ -381,7 +381,6 @@ function cerrarNota(){ $('ovNota').hidden=true; editNotaId=null; }
 $('regNueva').addEventListener('click', ()=> abrirNota());
 $('notaX').addEventListener('click', cerrarNota);
 $('notaCancel').addEventListener('click', cerrarNota);
-$('ovNota').addEventListener('click', (e)=>{ if(e.target===$('ovNota')) cerrarNota(); });
 $('formNota').addEventListener('submit', (e)=>{
   e.preventDefault();
   const tipo=$('ntTipo').value;
@@ -771,7 +770,6 @@ function hcPreview(id){
 function cerrarPrev(){ $('ovPrev').hidden=true; }
 (function(){
   const x=$('prevX'); if(x) x.addEventListener('click', cerrarPrev);
-  const ov=$('ovPrev'); if(ov) ov.addEventListener('click', (e)=>{ if(e.target===ov) cerrarPrev(); });
 })();
 
 /* ============================================================
