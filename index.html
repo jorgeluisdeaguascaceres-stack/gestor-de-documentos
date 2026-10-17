@@ -139,10 +139,13 @@
       <p class="hint">Elija una opción para comenzar.</p>
       <div class="biglist" id="regTipoList">
         <button class="bigbtn" type="button" data-tipo="Historia clínica">Historia clínica</button>
-        <button class="bigbtn" type="button" data-tipo="Evolución SOAP">Evolución SOAP</button>
-        <button class="bigbtn" type="button" data-tipo="Nota de enfermería">Nota de enfermería</button>
-        <button class="bigbtn" type="button" data-tipo="Terapia">Terapia</button>
-        <button class="bigbtn" type="button" data-tipo="Epicrisis">Epicrisis</button>
+        <button class="bigbtn" type="button" data-tipo="Evolución de enfermería">Evolución de enfermería</button>
+        <button class="bigbtn" type="button" data-tipo="Evolución de psicología">Evolución de psicología</button>
+        <button class="bigbtn" type="button" data-tipo="Evolución de terapia física">Evolución de terapia física</button>
+        <button class="bigbtn" type="button" data-tipo="Evolución de fonoaudiología">Evolución de fonoaudiología</button>
+        <button class="bigbtn" type="button" data-tipo="Evolución de terapia de salud ocupacional">Evolución de terapia de salud ocupacional</button>
+        <button class="bigbtn" type="button" data-tipo="Nota de servicio de cama">Nota de servicio de cama</button>
+        <button class="bigbtn" type="button" data-tipo="Limpieza y cuidado de la traqueotomía">Limpieza y cuidado de la traqueotomía</button>
       </div>
     </div>
 
@@ -233,12 +236,25 @@
         <div class="cfgpane" id="cfg-usuarios">
           <div class="panel">
             <h3>Crear usuario</h3>
-            <p class="hint">Registre a cada persona del equipo. Luego defina qué puede hacer en la <b>Matriz de permisos</b>.</p>
+            <p class="hint">Registre a cada persona del equipo con su <b>perfil profesional</b>. Todos pueden hacer historia clínica; lo que define el documento es su <b>especialidad</b> y su <b>firma</b>. Luego defina qué puede hacer en la <b>Matriz de permisos</b>.</p>
             <form id="formUsr" autocomplete="off">
               <div class="grid">
                 <div><label class="req">Usuario</label><input id="nuUsuario" placeholder="maria.gomez"></div>
+                <div><label>Número de documento</label><input id="nuDoc" inputmode="numeric" placeholder="C.C. 1010101010"></div>
+                <div class="wide"><label>Nombre completo del profesional</label><input id="nuNombre" placeholder="Dr(a). Nombre Apellido"></div>
                 <div><label class="req">Contraseña</label><input id="nuClave" type="password" placeholder="mínimo 8"></div>
                 <div><label>Rol</label><select id="nuRol"><option value="administrativo">Administrativo (admisiones)</option><option value="medico">Médico (registro clínico)</option><option value="admin">Administrador (admisión + registro)</option></select></div>
+                <div><label>Registro profesional</label><input id="nuRegistro" placeholder="RM-12345"></div>
+                <div><label>Especialidad / área</label><select id="nuEspec"></select></div>
+                <div class="wide">
+                  <label>Firma digital (opcional)</label>
+                  <div class="firmarow">
+                    <input id="nuFirmaFile" type="file" accept="image/png,image/jpeg">
+                    <button class="btn ghost mini" id="nuFirmaQuitar" type="button">Quitar</button>
+                  </div>
+                  <img id="nuFirmaPrev" class="firmaprev" alt="Vista previa de la firma" hidden>
+                  <span class="hint">Imagen de la firma con fondo blanco. Aparecerá en los documentos PDF que genere el profesional.</span>
+                </div>
               </div>
               <div class="actions"><button class="btn" type="submit">Crear usuario</button><span class="msg" id="usrMsg"></span></div>
             </form>
@@ -246,7 +262,7 @@
           <div class="panel">
             <div class="ptop"><h3>Usuarios registrados</h3><span class="count" id="usrCount">0 usuarios</span></div>
             <div class="tablebox">
-              <table><thead><tr><th>Usuario</th><th>Rol</th><th>Estado</th><th>Último acceso</th><th></th></tr></thead>
+              <table><thead><tr><th>Usuario</th><th>Profesional</th><th>Especialidad</th><th>Rol</th><th>Estado</th><th>Último acceso</th><th></th></tr></thead>
               <tbody id="usrListTb"></tbody></table>
             </div>
           </div>

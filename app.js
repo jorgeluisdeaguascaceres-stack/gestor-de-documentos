@@ -26,6 +26,7 @@ function flash(el, texto, tipo){ el.textContent=texto; el.className='msg'+(tipo?
    AUTENTICACIÓN Y PERMISOS
    ============================================================ */
 const ROLES = { maestro:'Maestro', admin:'Administrador', medico:'Médico', administrativo:'Administrativo' };
+const ESPECIALIDADES = ['General','Fisioterapeuta','Fonoaudiólogo','Terapeuta Ocupacional','Terapeuta Respiratorio','Psicólogo','Medicina Interna','Pediatría','Ginecología','Urología','Cirugía General','Ortopedia','Auxiliar de Enfermería','Enfermería Jefe'];
 const MODS = ['admision','registro','consulta','config'];
 function defaultPerms(rol){
   switch(rol){
@@ -307,7 +308,7 @@ function abrirNota(id){
     if(!regPac){ flash($('regMsg'),'Primero busque y seleccione un paciente.','err'); return; }
     $('notaTit').textContent='Nueva '+(regTipo||'nota').toLowerCase();
     $('ntTipo').value=regTipo; $('ntPac').value=regPac.nombre||'—'; $('ntDoc').value=regPac.doc;
-    $('ntMed').value=''; $('ntTexto').value='';
+    $('ntMed').value=(CURRENT&&(CURRENT.nombre||CURRENT.usuario))||''; $('ntTexto').value='';
     $('notaGuardar').textContent='Guardar nota';
   }
   $('ovNota').hidden=false; setTimeout(()=>$('ntMed').focus(),50);
@@ -328,7 +329,8 @@ $('formNota').addEventListener('submit', (e)=>{
     n.editadoPor=(CURRENT&&CURRENT.usuario)||''; n.editadoEl=new Date().toISOString();
     store.set('notas',l);
   } else {
-    const nota={ id:uid(), fecha:new Date().toISOString(), tipo:$('ntTipo').value, pac:$('ntPac').value.trim(), doc:$('ntDoc').value.trim(), medico:$('ntMed').value.trim(), texto, creadoPor:(CURRENT&&CURRENT.usuario)||'' };
+    const prof=CURRENT||{};
+    const nota={ id:uid(), fecha:new Date().toISOString(), tipo:$('ntTipo').value, pac:$('ntPac').value.trim(), doc:$('ntDoc').value.trim(), medico:$('ntMed').value.trim(), especialidad:prof.especialidad||'', registro:prof.registro||'', firma:prof.firma||'', texto, creadoPor:(CURRENT&&CURRENT.usuario)||'' };
     const l=store.get('notas',[]); l.push(nota); store.set('notas',l);
   }
   cerrarNota(); renderReg();
@@ -413,10 +415,23 @@ function consultaPDF(){
     d.text((i+1)+'. '+n.tipo, ml, y); y+=15;
     d.setFont('helvetica','normal'); d.setFontSize(9); d.setTextColor(90,105,120);
     d.text('Fecha: '+fmtFecha(n.fecha)+'      Profesional: '+(n.medico||'—'), ml, y); y+=15;
+    const perfil=[n.especialidad?('Especialidad: '+n.especialidad):'', n.registro?('Registro: '+n.registro):''].filter(Boolean).join('      ');
+    if(perfil){ d.text(perfil, ml, y); y+=15; }
     d.setFontSize(10); d.setTextColor(25,35,48);
     const txt = (n.texto&&n.texto.trim()) ? n.texto : '(sin contenido)';
     const lineas = d.splitTextToSize(txt, ancho);
     lineas.forEach(ln=>{ nl(14); d.text(ln, ml, y); y+=14; });
+    // firma del profesional (si existe)
+    if(n.firma && /^data:image\/(png|jpeg)/.test(n.firma)){
+      try{
+        const fmt = /^data:image\/png/.test(n.firma) ? 'PNG' : 'JPEG';
+        let fw=130, fh=46;
+        try{ const pr=d.getImageProperties(n.firma); if(pr&&pr.width&&pr.height){ fh=Math.min(50, fw*pr.height/pr.width); } }catch(_){}
+        y+=6; nl(fh+16);
+        d.setFont('helvetica','normal'); d.setFontSize(8); d.setTextColor(120,130,142); d.text('Firma:', ml, y); y+=4;
+        d.addImage(n.firma, fmt, ml, y, fw, fh); y+=fh+4;
+      }catch(_){ }
+    }
     y+=8; nl(16); d.setDrawColor(210,220,230); d.setLineWidth(0.5); d.line(ml,y,pw-mr,y); y+=16;
   });
   // pie con numeración
@@ -482,6 +497,8 @@ function renderUsrList(){
   lista.forEach(u=>{
     const tr=document.createElement('tr');
     tr.appendChild(td(u.usuario));
+    tr.appendChild(td(u.nombre||''));
+    tr.appendChild(td(u.especialidad||''));
     const rc=document.createElement('td'); const rp=document.createElement('span'); rp.className='pill '+((u.rol==='maestro'||u.rol==='admin')?'cy':'gr'); rp.textContent=ROLES[u.rol]||u.rol; rc.appendChild(rp); tr.appendChild(rc);
     const ec=document.createElement('td'); const ep=document.createElement('span'); ep.className='pill '+(u.activo?'ok':'off'); ep.textContent=u.activo?'Activo':'Inactivo'; ec.appendChild(ep); tr.appendChild(ec);
     tr.appendChild(td(u.ultimo?fmtFecha(u.ultimo):'Nunca'));
@@ -507,16 +524,38 @@ function cfgTab(name){
   const nav=$('cfgNav');
   if(nav) nav.addEventListener('click', (e)=>{ const b=e.target.closest('[data-cfg]'); if(b) cfgTab(b.getAttribute('data-cfg')); });
 })();
+/* -- poblar lista de especialidades y manejar la firma digital -- */
+(function(){
+  const sel=$('nuEspec');
+  if(sel){ ESPECIALIDADES.forEach(e=>{ const o=document.createElement('option'); o.value=e; o.textContent=e; sel.appendChild(o); }); }
+})();
+let nuFirmaData = null; /* dataURL de la firma cargada */
+(function(){
+  const file=$('nuFirmaFile'), prev=$('nuFirmaPrev'), quit=$('nuFirmaQuitar');
+  if(!file) return;
+  file.addEventListener('change', ()=>{
+    const f=file.files && file.files[0];
+    if(!f){ nuFirmaData=null; prev.hidden=true; prev.removeAttribute('src'); return; }
+    if(!/^image\/(png|jpeg)$/.test(f.type)){ flash($('usrMsg'),'La firma debe ser una imagen PNG o JPG.','err'); file.value=''; return; }
+    if(f.size>600*1024){ flash($('usrMsg'),'La imagen de la firma es muy grande (máx. 600 KB).','err'); file.value=''; return; }
+    const r=new FileReader();
+    r.onload=()=>{ nuFirmaData=r.result; prev.src=r.result; prev.hidden=false; };
+    r.readAsDataURL(f);
+  });
+  quit.addEventListener('click', ()=>{ nuFirmaData=null; file.value=''; prev.hidden=true; prev.removeAttribute('src'); });
+})();
 $('formUsr').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const usuario=$('nuUsuario').value.trim().toLowerCase(), clave=$('nuClave').value, rol=$('nuRol').value;
+  const nombre=$('nuNombre').value.trim(), docn=$('nuDoc').value.trim(), registro=$('nuRegistro').value.trim(), especialidad=$('nuEspec').value;
   if(!/^[a-z0-9._-]{3,}$/.test(usuario)){ flash($('usrMsg'),'Usuario inválido (letras, números, punto, guion).','err'); return; }
   if(clave.length<8 || !/[a-z]/i.test(clave) || !/[0-9]/.test(clave)){ flash($('usrMsg'),'La contraseña debe tener 8+ caracteres con letras y números.','err'); return; }
   if(usuarios().some(x=>x.usuario===usuario)){ flash($('usrMsg'),'Ese usuario ya existe.','err'); return; }
   const h = await hashPwd(clave);
-  const nuevo = { id:uid(), usuario, rol, activo:true, ultimo:null, salt:h.salt, hash:h.hash, perms:defaultPerms(rol) };
+  const nuevo = { id:uid(), usuario, nombre, doc:docn, registro, especialidad, firma:nuFirmaData||'', rol, activo:true, ultimo:null, salt:h.salt, hash:h.hash, perms:defaultPerms(rol) };
   const l=usuarios(); l.push(nuevo); setUsuarios(l);
-  $('nuUsuario').value=''; $('nuClave').value='';
+  $('nuUsuario').value=''; $('nuClave').value=''; $('nuNombre').value=''; $('nuDoc').value=''; $('nuRegistro').value=''; $('nuEspec').selectedIndex=0;
+  nuFirmaData=null; $('nuFirmaFile').value=''; $('nuFirmaPrev').hidden=true; $('nuFirmaPrev').removeAttribute('src');
   flash($('usrMsg'),'Usuario creado con permisos de '+(ROLES[rol]||rol)+'.','ok'); renderUsr(); renderUsrList();
 });
 
