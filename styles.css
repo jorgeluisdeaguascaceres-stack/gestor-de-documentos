@@ -107,7 +107,10 @@ input.bad{border-color:var(--err)}
 .btn.del{background:transparent;border:1px solid #6b2530;color:#ffb4b4;box-shadow:none}
 .btn.del:hover{background:#2a1218}
 .msg{font-size:13px;color:var(--dim)}
-.msg.ok{color:var(--ok)}.msg.err{color:#ffb4b4}
+.msg.ok{color:var(--ok)}.msg.err{color:#ffb4b4}.msg.warn{color:#ffd27a}
+.mcrear th{font-size:11px;white-space:nowrap}
+.mcrear td,.mcrear th{padding-left:6px;padding-right:6px;text-align:center}
+.mcrear td:first-child,.mcrear th:first-child,.mcrear td:nth-child(2),.mcrear th:nth-child(2){text-align:left}
 /* ---------- toolbar / tablas ---------- */
 .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
 .toolbar .search{flex:1 1 280px;max-width:460px}

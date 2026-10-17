@@ -8,7 +8,28 @@ App web limpia inspirada en el diseño y colores de tu sistema real NEXUSMED
    filtro por tipo y creación de notas (Historia clínica, Evolución SOAP, Nota de
    enfermería, Terapia, Epicrisis).
 3. **Configuraciones** – parámetros de la IPS + gestión de usuarios (crear, activar/
-   desactivar, eliminar, con roles Administrador / Médico / Auditor).
+   desactivar, eliminar, con roles Maestro / Administrador / Médico / Auxiliar de
+   enfermería / Administrativo) + dos matrices de permisos.
+
+## Permisos: ver vs. crear (Config → Matriz de permisos)
+Hay dos tablas:
+- **Matriz de permisos**: acceso a cada módulo (Admisión, Registro, Consulta,
+  Config) más Editar admisiones y Eliminar notas.
+- **Permiso para crear notas**: por cada persona se activa qué tipos de nota puede
+  **crear y editar** (Historia clínica, Enfermería, Psicología, Terapia física,
+  Fonoaudiología, Terapia ocupacional, Nota de cama, Traqueotomía).
+
+Regla clave: **ver una nota siempre está permitido** a quien tenga acceso al
+módulo Registro. Lo que se controla es la **creación/edición**. Así:
+- Un **médico** puede leer una nota de enfermería, pero no redactarla.
+- Una **auxiliar** puede leer una historia clínica o una terapia, pero no crearlas;
+  sí crea sus notas de enfermería, cama y traqueotomía.
+Cuando alguien abre una nota que no puede editar, el formulario se muestra en
+**solo lectura** (campos bloqueados, sin botón Guardar) y el botón de la lista
+aparece como **Ver** en vez de Editar. El botón **+ Nueva nota** se desactiva si
+el perfil no tiene permiso para ese tipo. El maestro define todo esto por persona;
+por defecto el médico crea todo menos las notas de enfermería, y la auxiliar solo
+crea las de enfermería/cama/traqueotomía.
 
 ## Historia clínica para la EPS (Registro Médico → Historia clínica)
 Al crear una **Historia clínica**, el formulario se abre con los apartados del

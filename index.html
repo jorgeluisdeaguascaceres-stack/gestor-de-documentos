@@ -244,7 +244,7 @@
                 <div><label>Número de documento</label><input id="nuDoc" inputmode="numeric" placeholder="C.C. 1010101010"></div>
                 <div class="wide"><label>Nombre completo del profesional</label><input id="nuNombre" placeholder="Dr(a). Nombre Apellido"></div>
                 <div><label class="req">Contraseña</label><input id="nuClave" type="password" placeholder="mínimo 8"></div>
-                <div><label>Rol</label><select id="nuRol"><option value="administrativo">Administrativo (admisiones)</option><option value="medico">Médico (registro clínico)</option><option value="admin">Administrador (admisión + registro)</option></select></div>
+                <div><label>Rol</label><select id="nuRol"><option value="administrativo">Administrativo (admisiones)</option><option value="medico">Médico (registro clínico)</option><option value="auxiliar">Auxiliar de enfermería (notas de enfermería)</option><option value="admin">Administrador (admisión + registro)</option></select></div>
                 <div><label>Registro profesional</label><input id="nuRegistro" placeholder="RM-12345"></div>
                 <div><label>Especialidad / área</label><select id="nuEspec"></select></div>
                 <div class="wide">
@@ -277,6 +277,14 @@
             <div class="tablebox">
               <table><thead><tr><th>Usuario</th><th>Rol</th><th>Admisión</th><th>Registro</th><th>Consulta</th><th>Config</th><th>Editar</th><th>Eliminar</th></tr></thead>
               <tbody id="usrTb"></tbody></table>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="ptop"><h3>Permiso para crear notas</h3></div>
+            <p class="hint">Active el tipo de nota que cada persona puede <b>crear y editar</b>. <b>Ver</b> una nota siempre está permitido a quien tenga acceso al módulo Registro: por eso un médico puede leer una nota de enfermería aunque no la pueda redactar, y una auxiliar puede leer una historia clínica o una terapia aunque no la pueda crear. Pase el cursor sobre cada columna para ver el tipo completo.</p>
+            <div class="tablebox">
+              <table class="mcrear"><thead><tr><th>Usuario</th><th>Rol</th><th title="Historia clínica">H. clínica</th><th title="Evolución de enfermería">Enfermería</th><th title="Evolución de psicología">Psicología</th><th title="Evolución de terapia física">T. física</th><th title="Evolución de fonoaudiología">Fonoaud.</th><th title="Evolución de terapia de salud ocupacional">T. ocup.</th><th title="Nota de servicio de cama">N. cama</th><th title="Limpieza y cuidado de la traqueotomía">Traqueo.</th></tr></thead>
+              <tbody id="usrCrearTb"></tbody></table>
             </div>
           </div>
         </div>

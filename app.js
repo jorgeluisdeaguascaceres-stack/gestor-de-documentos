@@ -28,16 +28,37 @@ function flash(el, texto, tipo){ el.textContent=texto; el.className='msg'+(tipo?
 /* ============================================================
    AUTENTICACIÓN Y PERMISOS
    ============================================================ */
-const ROLES = { maestro:'Maestro', admin:'Administrador', medico:'Médico', administrativo:'Administrativo' };
+const ROLES = { maestro:'Maestro', admin:'Administrador', medico:'Médico', auxiliar:'Auxiliar de enfermería', administrativo:'Administrativo' };
+/* Tipos de nota del núcleo clínico. La clave es estable; la etiqueta coincide con los
+   botones de index.html. El permiso de CREAR/EDITAR es por tipo; VER siempre se permite
+   a quien tenga acceso al módulo Registro. */
+const TIPOS_NOTA = [
+  {key:'hc',   label:'Historia clínica',                               corto:'H. clínica'},
+  {key:'enf',  label:'Evolución de enfermería',                        corto:'Enfermería'},
+  {key:'psi',  label:'Evolución de psicología',                        corto:'Psicología'},
+  {key:'tf',   label:'Evolución de terapia física',                     corto:'T. física'},
+  {key:'fono', label:'Evolución de fonoaudiología',                     corto:'Fonoaud.'},
+  {key:'so',   label:'Evolución de terapia de salud ocupacional',       corto:'T. ocup.'},
+  {key:'cama', label:'Nota de servicio de cama',                        corto:'N. cama'},
+  {key:'traq', label:'Limpieza y cuidado de la traqueotomía',           corto:'Traqueo.'}
+];
+const TIPO_KEY = {}; TIPOS_NOTA.forEach(t=> TIPO_KEY[t.label]=t.key);
+/* construye un mapa {clave:valor} aplicando fn a cada tipo de nota */
+function crearSet(fn){ const o={}; TIPOS_NOTA.forEach(t=> o[t.key]=fn(t.key)); return o; }
+/* notas propias del personal de enfermería / auxiliar */
+const TIPOS_ENFERMERIA = ['enf','cama','traq'];
 const ESPECIALIDADES = ['General','Fisioterapeuta','Fonoaudiólogo','Terapeuta Ocupacional','Terapeuta Respiratorio','Psicólogo','Medicina Interna','Pediatría','Ginecología','Urología','Cirugía General','Ortopedia','Auxiliar de Enfermería','Enfermería Jefe'];
 const MODS = ['admision','registro','consulta','config'];
 function defaultPerms(rol){
   switch(rol){
-    case 'maestro': return {admision:true, registro:true, consulta:true, config:true, editar:true, eliminar:true};
-    case 'admin':   return {admision:true, registro:true, consulta:true, config:false, editar:true, eliminar:true};
-    case 'medico':  return {admision:false, registro:true, consulta:true, config:false, editar:false, eliminar:false};
-    case 'administrativo': return {admision:true, registro:false, consulta:true, config:false, editar:false, eliminar:false};
-    default: return {admision:false, registro:false, consulta:false, config:false, editar:false, eliminar:false};
+    case 'maestro': return {admision:true, registro:true, consulta:true, config:true, editar:true, eliminar:true, crear:crearSet(()=>true)};
+    case 'admin':   return {admision:true, registro:true, consulta:true, config:false, editar:true, eliminar:true, crear:crearSet(()=>true)};
+    /* el médico crea todo MENOS las notas propias de enfermería/auxiliar */
+    case 'medico':  return {admision:false, registro:true, consulta:true, config:false, editar:false, eliminar:false, crear:crearSet(k=> !TIPOS_ENFERMERIA.includes(k))};
+    /* el auxiliar/enfermería SOLO crea sus notas; puede VER las demás */
+    case 'auxiliar': return {admision:false, registro:true, consulta:true, config:false, editar:false, eliminar:false, crear:crearSet(k=> TIPOS_ENFERMERIA.includes(k))};
+    case 'administrativo': return {admision:true, registro:false, consulta:true, config:false, editar:false, eliminar:false, crear:crearSet(()=>false)};
+    default: return {admision:false, registro:false, consulta:false, config:false, editar:false, eliminar:false, crear:crearSet(()=>false)};
   }
 }
 function bytesToHex(b){ return Array.from(b).map(x=>x.toString(16).padStart(2,'0')).join(''); }
@@ -60,12 +81,20 @@ function necesitaMaestro(){ const l=usuarios(); return l.length===0 || !l.some(u
 function sesionUser(){ const s=store.get('sesion',null); if(!s) return null; const u=usuarios().find(x=>x.usuario===s.usuario); return (u && u.activo && u.hash)?u:null; }
 let CURRENT = null;
 function can(mod){ if(CURRENT && CURRENT.rol==='maestro') return true; return !!(CURRENT && CURRENT.perms && CURRENT.perms[mod]); }
+/* ¿el usuario actual puede CREAR o EDITAR una nota de este tipo? (VER siempre se permite) */
+function puedeCrear(tipo){
+  if(CURRENT && CURRENT.rol==='maestro') return true;
+  const k = TIPO_KEY[tipo]; if(!k) return false;
+  return !!(CURRENT && CURRENT.perms && CURRENT.perms.crear && CURRENT.perms.crear[k]);
+}
 /* el maestro SIEMPRE tiene todos los permisos; a los demás se les completan las llaves faltantes
    conservando lo que el maestro ya les concedió */
 function permsCompletos(rol, base){
   const d = defaultPerms(rol);
   const out = Object.assign({}, d, base||{});
-  if(rol==='maestro'){ Object.keys(d).forEach(k=> out[k]=true); }
+  /* fusión profunda del mapa de creación por tipo de nota */
+  out.crear = Object.assign({}, d.crear, (base&&base.crear)||{});
+  if(rol==='maestro'){ Object.keys(d).forEach(k=>{ if(k!=='crear') out[k]=true; }); TIPOS_NOTA.forEach(t=> out.crear[t.key]=true); }
   return out;
 }
 function repararPerms(){
@@ -91,7 +120,7 @@ function entrar(u){
   $('userRole').textContent = (ROLES[u.rol]||u.rol).toUpperCase();
   aplicarPermisos();
   renderAdm(); loadIps(); refreshPacList(); regMostrarTipos();
-  if(can('config')){ renderUsr(); renderUsrList(); }
+  if(can('config')){ renderUsr(); renderCrear(); renderUsrList(); }
   goView('home');
 }
 function salir(){ store.set('sesion', null); CURRENT=null; mostrarGate(); }
@@ -218,6 +247,7 @@ $('admLimpiar').addEventListener('click', ()=>{ limpiarAdm(false); cancelarEdici
 let regTipo = null;          /* tipo de nota elegido */
 let regPac  = null;          /* {nombre, doc} paciente resuelto */
 let editNotaId = null;       /* id de la nota en edición (modal) */
+let soloLectura = false;     /* true cuando se abre una nota en modo ver (sin permiso de crear) */
 
 /* índice de pacientes a partir de admisiones (y notas previas) */
 function indicePacientes(){
@@ -242,6 +272,7 @@ function regAbrirTipo(tipo){
   $('regTipoTit').textContent=tipo;
   $('regBuscar').value=''; $('regPacNom').value=''; $('regPacDoc').value='';
   $('regNueva').disabled=true; flash($('regMsg'),'');
+  if(!puedeCrear(tipo)){ flash($('regMsg'),'Su perfil puede VER estas notas pero no crearlas ni editarlas (solo lectura).','warn'); }
   $('regTipos').hidden=true; $('regPanel').hidden=false;
   refreshPacList(); renderReg();
   setTimeout(()=>$('regBuscar').focus(),50);
@@ -263,7 +294,7 @@ function resolverPaciente(txt){
 }
 function aplicarBusqueda(){
   const p=resolverPaciente($('regBuscar').value);
-  if(p){ regPac=p; $('regPacNom').value=p.nombre||'—'; $('regPacDoc').value=p.doc; $('regNueva').disabled=false; flash($('regMsg'),''); }
+  if(p){ regPac=p; $('regPacNom').value=p.nombre||'—'; $('regPacDoc').value=p.doc; $('regNueva').disabled=!puedeCrear(regTipo); flash($('regMsg'), puedeCrear(regTipo)?'':'Su perfil puede VER estas notas pero no crearlas ni editarlas (solo lectura).', puedeCrear(regTipo)?'':'warn'); }
   else { regPac=null; $('regPacNom').value=''; $('regPacDoc').value=''; $('regNueva').disabled=true; }
   renderReg();
 }
@@ -285,9 +316,17 @@ function renderReg(){
     tr.appendChild(td(n.medico));
     const ct=document.createElement('td'); ct.className='cellwrap'; ct.textContent=n.texto||'—'; tr.appendChild(ct);
     const acc=document.createElement('td'); acc.className='right';
-    const be=document.createElement('button'); be.className='btn ghost mini'; be.textContent='Editar';
-    be.addEventListener('click', ()=> abrirNota(n.id));
-    acc.appendChild(be);
+    const puede=puedeCrear(n.tipo);
+    if(puede){
+      const be=document.createElement('button'); be.className='btn ghost mini'; be.textContent='Editar';
+      be.addEventListener('click', ()=> abrirNota(n.id));
+      acc.appendChild(be);
+    } else if(!esHC(n.tipo)){
+      /* sin permiso de creación: solo lectura (para HC ya existe el botón Ver de abajo) */
+      const bv=document.createElement('button'); bv.className='btn ghost mini'; bv.textContent='Ver';
+      bv.addEventListener('click', ()=> abrirNota(n.id, true));
+      acc.appendChild(bv);
+    }
     if(n.tipo==='Historia clínica'){
       const bv=document.createElement('button'); bv.className='btn ghost mini'; bv.textContent='Ver'; bv.style.marginLeft='6px';
       bv.addEventListener('click', ()=> hcPreview(n.id));
@@ -356,34 +395,47 @@ function hcResumen(hc){
   ['hcPeso','hcTalla'].forEach(id=>{ const el=$(id); if(el) el.addEventListener('input', hcCalcIMC); });
 })();
 
-function abrirNota(id){
+function abrirNota(id, ro){
   editNotaId = id || null;
+  soloLectura = !!ro;
   flash($('ntMsg'),'');
   hcClear();
   if(editNotaId){
     const n=store.get('notas',[]).find(x=>x.id===editNotaId); if(!n){ return; }
-    $('notaTit').textContent='Editar '+(n.tipo||'nota').toLowerCase();
+    $('notaTit').textContent=(soloLectura?'Ver ':'Editar ')+(n.tipo||'nota').toLowerCase();
     $('ntTipo').value=n.tipo; $('ntPac').value=n.pac||'—'; $('ntDoc').value=n.doc||'';
     $('ntMed').value=n.medico||''; $('ntTexto').value=n.texto||''; $('ntFecha').value=isoToLocalInput(n.fecha);
     hcToggle(n.tipo); if(esHC(n.tipo)) hcFill(n.hc);
     $('notaGuardar').textContent='Actualizar nota';
   } else {
     if(!regPac){ flash($('regMsg'),'Primero busque y seleccione un paciente.','err'); return; }
+    if(!puedeCrear(regTipo)){ flash($('regMsg'),'Su perfil no tiene permiso para crear este tipo de nota.','err'); return; }
     $('notaTit').textContent='Nueva '+(regTipo||'nota').toLowerCase();
     $('ntTipo').value=regTipo; $('ntPac').value=regPac.nombre||'—'; $('ntDoc').value=regPac.doc;
     $('ntMed').value=(CURRENT&&(CURRENT.nombre||CURRENT.usuario))||''; $('ntTexto').value=''; $('ntFecha').value=isoToLocalInput();
     hcToggle(regTipo);
     $('notaGuardar').textContent='Guardar nota';
   }
+  aplicarSoloLectura(soloLectura);
   $('ovNota').hidden=false; setTimeout(()=>$('ntMed').focus(),50);
 }
-function cerrarNota(){ $('ovNota').hidden=true; editNotaId=null; }
+/* bloquea/desbloquea el formulario para el modo solo lectura (sin permiso de creación) */
+function aplicarSoloLectura(ro){
+  const editables=['ntMed','ntTexto','ntFecha'].concat(HC_FIELDS);
+  editables.forEach(id=>{ const el=$(id); if(el) el.disabled=!!ro; });
+  document.querySelectorAll('#formNota .normbtn, #formNota .normall').forEach(b=> b.disabled=!!ro);
+  const g=$('notaGuardar'); if(g) g.hidden=!!ro;
+  const c=$('notaCancel'); if(c) c.textContent = ro?'Cerrar':'Cancelar';
+}
+function cerrarNota(){ $('ovNota').hidden=true; editNotaId=null; soloLectura=false; }
 $('regNueva').addEventListener('click', ()=> abrirNota());
 $('notaX').addEventListener('click', cerrarNota);
 $('notaCancel').addEventListener('click', cerrarNota);
 $('formNota').addEventListener('submit', (e)=>{
   e.preventDefault();
   const tipo=$('ntTipo').value;
+  if(soloLectura){ cerrarNota(); return; }
+  if(!puedeCrear(tipo)){ flash($('ntMsg'),'No tiene permiso para crear o editar este tipo de nota.','err'); return; }
   let texto, hc=null;
   if(esHC(tipo)){
     hc=hcCollect();
@@ -819,6 +871,26 @@ function renderUsr(){
     tb.appendChild(tr);
   });
 }
+/* -- matriz de CREACIÓN de notas por tipo (quien no tenga el permiso solo podrá VER) -- */
+function renderCrear(){
+  const tb=$('usrCrearTb'); if(!tb) return; tb.innerHTML='';
+  usuarios().forEach(u=>{
+    const tr=document.createElement('tr');
+    tr.appendChild(td(u.usuario));
+    const rc=document.createElement('td'); const rp=document.createElement('span'); rp.className='pill '+((u.rol==='maestro'||u.rol==='admin')?'cy':'gr'); rp.textContent=ROLES[u.rol]||u.rol; rc.appendChild(rp); tr.appendChild(rc);
+    TIPOS_NOTA.forEach(t=>{
+      const c=document.createElement('td'); c.className='csw';
+      const lab=document.createElement('label'); lab.className='sw';
+      const inp=document.createElement('input'); inp.type='checkbox';
+      inp.checked=(u.rol==='maestro')?true:!!(u.perms&&u.perms.crear&&u.perms.crear[t.key]);
+      if(u.rol==='maestro') inp.disabled=true;
+      inp.addEventListener('change', ()=>{ const l=usuarios(); const x=l.find(y=>y.id===u.id); if(!x) return; if(!x.perms) x.perms={}; if(!x.perms.crear) x.perms.crear={}; x.perms.crear[t.key]=inp.checked; setUsuarios(l); });
+      const tk=document.createElement('span'); tk.className='track';
+      lab.appendChild(inp); lab.appendChild(tk); c.appendChild(lab); tr.appendChild(c);
+    });
+    tb.appendChild(tr);
+  });
+}
 /* lista de gestión de usuarios (estado / último acceso / acciones) */
 function renderUsrList(){
   const lista=usuarios();
@@ -839,7 +911,7 @@ function renderUsrList(){
       const bt=document.createElement('button'); bt.className='btn ghost mini'; bt.textContent=u.activo?'Desactivar':'Activar';
       bt.addEventListener('click', ()=>{ const l=usuarios(); const t=l.find(x=>x.id===u.id); if(t){t.activo=!t.activo; setUsuarios(l); renderUsrList();} });
       const bd=document.createElement('button'); bd.className='btn del mini'; bd.textContent='Eliminar'; bd.style.marginLeft='6px';
-      bd.addEventListener('click', ()=>{ if(confirm('¿Eliminar el usuario '+u.usuario+'?')){ setUsuarios(usuarios().filter(x=>x.id!==u.id)); renderUsr(); renderUsrList(); } });
+      bd.addEventListener('click', ()=>{ if(confirm('¿Eliminar el usuario '+u.usuario+'?')){ setUsuarios(usuarios().filter(x=>x.id!==u.id)); renderUsr(); renderCrear(); renderUsrList(); } });
       acc.appendChild(bt); acc.appendChild(bd);
     }
     tr.appendChild(acc); tb.appendChild(tr);
@@ -947,7 +1019,7 @@ $('formUsr').addEventListener('submit', async (e)=>{
   const l=usuarios(); l.push(nuevo); setUsuarios(l);
   $('nuUsuario').value=''; $('nuClave').value=''; $('nuNombre').value=''; $('nuDoc').value=''; $('nuRegistro').value=''; $('nuEspec').selectedIndex=0;
   nuFirmaData=null; $('nuFirmaFile').value=''; $('nuFirmaPrev').hidden=true; $('nuFirmaPrev').removeAttribute('src');
-  flash($('usrMsg'),'Usuario creado con permisos de '+(ROLES[rol]||rol)+'.','ok'); renderUsr(); renderUsrList();
+  flash($('usrMsg'),'Usuario creado con permisos de '+(ROLES[rol]||rol)+'.','ok'); renderUsr(); renderCrear(); renderUsrList();
 });
 
 /* ---------- arranque ---------- */
