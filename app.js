@@ -29,11 +29,11 @@ const ROLES = { maestro:'Maestro', admin:'Administrador', medico:'Médico', admi
 const MODS = ['admision','registro','consulta','config'];
 function defaultPerms(rol){
   switch(rol){
-    case 'maestro': return {admision:true, registro:true, consulta:true, config:true, editar:true};
-    case 'admin':   return {admision:true, registro:true, consulta:true, config:false, editar:true};
-    case 'medico':  return {admision:false, registro:true, consulta:true, config:false, editar:false};
-    case 'administrativo': return {admision:true, registro:false, consulta:true, config:false, editar:false};
-    default: return {admision:false, registro:false, consulta:false, config:false, editar:false};
+    case 'maestro': return {admision:true, registro:true, consulta:true, config:true, editar:true, eliminar:true};
+    case 'admin':   return {admision:true, registro:true, consulta:true, config:false, editar:true, eliminar:true};
+    case 'medico':  return {admision:false, registro:true, consulta:true, config:false, editar:false, eliminar:false};
+    case 'administrativo': return {admision:true, registro:false, consulta:true, config:false, editar:false, eliminar:false};
+    default: return {admision:false, registro:false, consulta:false, config:false, editar:false, eliminar:false};
   }
 }
 function bytesToHex(b){ return Array.from(b).map(x=>x.toString(16).padStart(2,'0')).join(''); }
@@ -73,7 +73,7 @@ function entrar(u){
   $('userName').textContent = u.usuario;
   $('userRole').textContent = (ROLES[u.rol]||u.rol).toUpperCase();
   aplicarPermisos();
-  renderAdm(); renderReg(); loadIps(); refreshPacList();
+  renderAdm(); loadIps(); refreshPacList(); regMostrarTipos();
   if(can('config')) renderUsr();
   goView('home');
 }
@@ -107,6 +107,7 @@ $('btnSalir').addEventListener('click', salir);
 const VIEW_PERM = { admision:'admision', registro:'registro', consulta:'consulta', config:'config' };
 function goView(name){
   if(VIEW_PERM[name] && !can(VIEW_PERM[name])){ alert('No tienes permiso para acceder a este módulo.'); return; }
+  if(name==='registro') regMostrarTipos();
   document.querySelectorAll('.view').forEach(v=> v.classList.toggle('sel', v.id===name));
   window.scrollTo({top:0,behavior:'smooth'});
 }
@@ -195,53 +196,128 @@ function limpiarAdm(keepFecha){
 $('admLimpiar').addEventListener('click', ()=>{ limpiarAdm(false); cancelarEdicionAdm(); flash($('admMsg'),''); });
 
 /* ============================================================
-   MÓDULO 2 · REGISTRO MÉDICO (historias / notas de evolución)
+   MÓDULO 2 · REGISTRO MÉDICO (flujo simple por tipo + paciente)
    ============================================================ */
-function refreshPacList(){
-  const dl=$('pacList'); if(!dl) return; dl.innerHTML='';
-  const vistos=new Set();
-  store.get('admisiones',[]).forEach(a=>{ const n=nombrePaciente(a); if(n && !vistos.has(n)){ vistos.add(n); const o=document.createElement('option'); o.value=n; dl.appendChild(o); } });
+let regTipo = null;          /* tipo de nota elegido */
+let regPac  = null;          /* {nombre, doc} paciente resuelto */
+let editNotaId = null;       /* id de la nota en edición (modal) */
+
+/* índice de pacientes a partir de admisiones (y notas previas) */
+function indicePacientes(){
+  const map=new Map();
+  store.get('admisiones',[]).forEach(a=>{ const doc=(a.doc||'').trim(); const nom=nombrePaciente(a); if(doc && !map.has(doc)) map.set(doc,nom); });
+  store.get('notas',[]).forEach(n=>{ const doc=(n.doc||'').trim(); if(doc && !map.has(doc)) map.set(doc,n.pac||''); });
+  return map;
 }
+/* llena el datalist con "Nombre (documento)" */
+function refreshPacList(){
+  const dl=$('pacFull'); if(!dl) return; dl.innerHTML='';
+  indicePacientes().forEach((nom,doc)=>{ const o=document.createElement('option'); o.value=(nom?nom+' ':'')+'('+doc+')'; dl.appendChild(o); });
+}
+/* vuelve al listado de tipos */
+function regMostrarTipos(){
+  regTipo=null; regPac=null;
+  $('regTipos').hidden=false; $('regPanel').hidden=true;
+}
+/* abre el panel de un tipo concreto */
+function regAbrirTipo(tipo){
+  regTipo=tipo; regPac=null;
+  $('regTipoTit').textContent=tipo;
+  $('regBuscar').value=''; $('regPacNom').value=''; $('regPacDoc').value='';
+  $('regNueva').disabled=true; flash($('regMsg'),'');
+  $('regTipos').hidden=true; $('regPanel').hidden=false;
+  refreshPacList(); renderReg();
+  setTimeout(()=>$('regBuscar').focus(),50);
+}
+$('regTipoList').addEventListener('click', (e)=>{ const b=e.target.closest('[data-tipo]'); if(b) regAbrirTipo(b.getAttribute('data-tipo')); });
+$('regVolver').addEventListener('click', regMostrarTipos);
+
+/* resuelve el texto de búsqueda a un paciente */
+function resolverPaciente(txt){
+  txt=(txt||'').trim(); if(!txt) return null;
+  const idx=indicePacientes();
+  const mParen=txt.match(/\(([^)]+)\)\s*$/);   /* "Nombre (documento)" */
+  if(mParen){ const doc=mParen[1].trim(); if(idx.has(doc)) return {doc, nombre:idx.get(doc)}; }
+  if(idx.has(txt)) return {doc:txt, nombre:idx.get(txt)};           /* documento exacto */
+  const low=txt.toLowerCase();
+  for(const [doc,nom] of idx){ if((nom||'').toLowerCase()===low) return {doc, nombre:nom}; }
+  for(const [doc,nom] of idx){ if((nom||'').toLowerCase().includes(low) || doc.includes(txt)) return {doc, nombre:nom}; }
+  return null;
+}
+function aplicarBusqueda(){
+  const p=resolverPaciente($('regBuscar').value);
+  if(p){ regPac=p; $('regPacNom').value=p.nombre||'—'; $('regPacDoc').value=p.doc; $('regNueva').disabled=false; flash($('regMsg'),''); }
+  else { regPac=null; $('regPacNom').value=''; $('regPacDoc').value=''; $('regNueva').disabled=true; }
+  renderReg();
+}
+$('regBuscar').addEventListener('change', aplicarBusqueda);
+$('regBuscar').addEventListener('input', ()=>{ /* autocompleta al elegir del listado */ if(resolverPaciente($('regBuscar').value)) aplicarBusqueda(); });
+
 function renderReg(){
-  const q=($('regQ').value||'').toLowerCase().trim();
-  const ft=$('regFiltro').value;
-  let lista=store.get('notas',[]);
-  if(ft) lista=lista.filter(n=> n.tipo===ft);
-  if(q) lista=lista.filter(n=> (n.pac+' '+n.doc+' '+n.medico).toLowerCase().includes(q));
-  const tb=$('regTb'); tb.innerHTML='';
+  const tb=$('regTb'); if(!tb) return; tb.innerHTML='';
+  let lista=[];
+  if(regPac){ lista=store.get('notas',[]).filter(n=> (n.doc||'').trim()===regPac.doc && n.tipo===regTipo); }
+  lista.sort((a,b)=> (b.fecha||'').localeCompare(a.fecha||''));
   $('regCount').textContent = lista.length + (lista.length===1?' registro':' registros');
-  if(!lista.length){ const tr=document.createElement('tr'); const c=td('Sin notas registradas.'); c.colSpan=6; c.className='vacio'; tr.appendChild(c); tb.appendChild(tr); return; }
-  lista.slice().reverse().forEach(n=>{
+  if(!regPac){ const tr=document.createElement('tr'); const c=td('Busque un paciente para ver sus notas.'); c.colSpan=5; c.className='vacio'; tr.appendChild(c); tb.appendChild(tr); return; }
+  if(!lista.length){ const tr=document.createElement('tr'); const c=td('Este paciente aún no tiene notas de este tipo.'); c.colSpan=5; c.className='vacio'; tr.appendChild(c); tb.appendChild(tr); return; }
+  lista.forEach(n=>{
     const tr=document.createElement('tr');
     tr.appendChild(td(fmtFecha(n.fecha)));
-    tr.appendChild(td(n.pac));
-    tr.appendChild(td(n.doc));
-    const tt=td(''); const p=document.createElement('span'); p.className='pill cy'; p.textContent=n.tipo; tt.textContent=''; tt.appendChild(p); tr.appendChild(tt);
+    const tt=document.createElement('td'); const p=document.createElement('span'); p.className='pill cy'; p.textContent=n.tipo; tt.appendChild(p); tr.appendChild(tt);
     tr.appendChild(td(n.medico));
+    const ct=document.createElement('td'); ct.className='cellwrap'; ct.textContent=n.texto||'—'; tr.appendChild(ct);
     const acc=document.createElement('td'); acc.className='right';
-    const bv=document.createElement('button'); bv.className='btn ghost mini'; bv.textContent='Ver';
-    bv.addEventListener('click', ()=> alert(n.tipo+'\nPaciente: '+n.pac+'\nDocumento: '+n.doc+'\nMédico: '+(n.medico||'—')+'\nFecha: '+fmtFecha(n.fecha)+'\n\n'+(n.texto||'(sin contenido)')));
-    const bd=document.createElement('button'); bd.className='btn del mini'; bd.textContent='Eliminar'; bd.style.marginLeft='6px';
-    bd.addEventListener('click', ()=>{ if(confirm('¿Eliminar esta nota?')){ store.set('notas', store.get('notas',[]).filter(x=>x.id!==n.id)); renderReg(); } });
-    acc.appendChild(bv); acc.appendChild(bd); tr.appendChild(acc);
-    tb.appendChild(tr);
+    const be=document.createElement('button'); be.className='btn ghost mini'; be.textContent='Editar';
+    be.addEventListener('click', ()=> abrirNota(n.id));
+    acc.appendChild(be);
+    if(can('eliminar')){
+      const bd=document.createElement('button'); bd.className='btn del mini'; bd.textContent='Eliminar'; bd.style.marginLeft='6px';
+      bd.addEventListener('click', ()=>{ if(confirm('¿Eliminar esta nota?')){ store.set('notas', store.get('notas',[]).filter(x=>x.id!==n.id)); renderReg(); } });
+      acc.appendChild(bd);
+    }
+    tr.appendChild(acc); tb.appendChild(tr);
   });
 }
-$('regQ').addEventListener('input', renderReg);
-$('regFiltro').addEventListener('change', renderReg);
-/* modal nueva nota */
-function abrirNota(){ $('formNota').reset(); flash($('ntMsg'),''); $('ovNota').hidden=false; }
-function cerrarNota(){ $('ovNota').hidden=true; }
-$('regNueva').addEventListener('click', abrirNota);
+
+/* ---- modal de nota (crear / editar) ---- */
+function abrirNota(id){
+  editNotaId = id || null;
+  flash($('ntMsg'),'');
+  if(editNotaId){
+    const n=store.get('notas',[]).find(x=>x.id===editNotaId); if(!n){ return; }
+    $('notaTit').textContent='Editar nota clínica';
+    $('ntTipo').value=n.tipo; $('ntPac').value=n.pac||'—'; $('ntDoc').value=n.doc||'';
+    $('ntMed').value=n.medico||''; $('ntTexto').value=n.texto||'';
+    $('notaGuardar').textContent='Actualizar nota';
+  } else {
+    if(!regPac){ flash($('regMsg'),'Primero busque y seleccione un paciente.','err'); return; }
+    $('notaTit').textContent='Nueva '+(regTipo||'nota').toLowerCase();
+    $('ntTipo').value=regTipo; $('ntPac').value=regPac.nombre||'—'; $('ntDoc').value=regPac.doc;
+    $('ntMed').value=''; $('ntTexto').value='';
+    $('notaGuardar').textContent='Guardar nota';
+  }
+  $('ovNota').hidden=false; setTimeout(()=>$('ntMed').focus(),50);
+}
+function cerrarNota(){ $('ovNota').hidden=true; editNotaId=null; }
+$('regNueva').addEventListener('click', ()=> abrirNota());
 $('notaX').addEventListener('click', cerrarNota);
 $('notaCancel').addEventListener('click', cerrarNota);
 $('ovNota').addEventListener('click', (e)=>{ if(e.target===$('ovNota')) cerrarNota(); });
 $('formNota').addEventListener('submit', (e)=>{
   e.preventDefault();
-  const pac=$('ntPac').value.trim(), doc=$('ntDoc').value.trim();
-  if(!pac||!doc){ flash($('ntMsg'),'Indica paciente y documento.','err'); return; }
-  const nota={ id:uid(), fecha:new Date().toISOString(), tipo:$('ntTipo').value, pac, doc, medico:$('ntMed').value.trim(), texto:$('ntTexto').value.trim() };
-  const l=store.get('notas',[]); l.push(nota); store.set('notas',l);
+  const texto=$('ntTexto').value.trim();
+  if(!texto){ flash($('ntMsg'),'Escribe el contenido de la nota.','err'); return; }
+  if(editNotaId){
+    const l=store.get('notas',[]); const n=l.find(x=>x.id===editNotaId);
+    if(!n){ cerrarNota(); renderReg(); return; }
+    n.medico=$('ntMed').value.trim(); n.texto=texto;
+    n.editadoPor=(CURRENT&&CURRENT.usuario)||''; n.editadoEl=new Date().toISOString();
+    store.set('notas',l);
+  } else {
+    const nota={ id:uid(), fecha:new Date().toISOString(), tipo:$('ntTipo').value, pac:$('ntPac').value.trim(), doc:$('ntDoc').value.trim(), medico:$('ntMed').value.trim(), texto, creadoPor:(CURRENT&&CURRENT.usuario)||'' };
+    const l=store.get('notas',[]); l.push(nota); store.set('notas',l);
+  }
   cerrarNota(); renderReg();
 });
 
@@ -374,7 +450,15 @@ function renderUsr(){
     ie.addEventListener('change', ()=>{ const l=usuarios(); const t=l.find(x=>x.id===u.id); if(!t) return; if(!t.perms) t.perms={}; t.perms.editar=ie.checked; setUsuarios(l); });
     const tke=document.createElement('span'); tke.className='track';
     le.appendChild(ie); le.appendChild(tke); ce.appendChild(le);
-    const ec=document.createElement('td'); const ep=document.createElement('span'); ep.className='pill '+(u.activo?'ok':'off'); ep.textContent=u.activo?'Activo':'Inactivo'; ec.appendChild(ep); tr.appendChild(ce); tr.appendChild(ec);
+    /* columna Eliminar notas clínicas (permiso independiente) */
+    const cx=document.createElement('td'); cx.className='csw';
+    const lx=document.createElement('label'); lx.className='sw';
+    const ix=document.createElement('input'); ix.type='checkbox'; ix.checked=!!(u.perms&&u.perms.eliminar);
+    if(u.rol==='maestro') ix.disabled=true;
+    ix.addEventListener('change', ()=>{ const l=usuarios(); const t=l.find(x=>x.id===u.id); if(!t) return; if(!t.perms) t.perms={}; t.perms.eliminar=ix.checked; setUsuarios(l); });
+    const tkx=document.createElement('span'); tkx.className='track';
+    lx.appendChild(ix); lx.appendChild(tkx); cx.appendChild(lx);
+    const ec=document.createElement('td'); const ep=document.createElement('span'); ep.className='pill '+(u.activo?'ok':'off'); ep.textContent=u.activo?'Activo':'Inactivo'; ec.appendChild(ep); tr.appendChild(ce); tr.appendChild(cx); tr.appendChild(ec);
     tr.appendChild(td(u.ultimo?fmtFecha(u.ultimo):'Nunca'));
     const acc=document.createElement('td'); acc.className='right';
     if(u.rol==='maestro'){

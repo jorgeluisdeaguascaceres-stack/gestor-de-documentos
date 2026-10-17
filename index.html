@@ -132,20 +132,45 @@
       <h2>Registro Médico</h2>
       <span class="crumb">Módulo &middot; Núcleo clínico</span>
     </div>
-    <div class="panel">
-      <div class="toolbar">
-        <input id="regQ" class="search" placeholder="Buscar por paciente, documento o médico…" autocomplete="off">
-        <select id="regFiltro">
-          <option value="">Todos los tipos</option>
-          <option>Historia clínica</option><option>Evolución SOAP</option>
-          <option>Nota de enfermería</option><option>Terapia</option><option>Epicrisis</option>
-        </select>
-        <button class="btn" id="regNueva" type="button">+ Nueva nota</button>
+
+    <!-- Paso 1: elegir tipo de registro -->
+    <div class="panel" id="regTipos">
+      <h3>¿Qué desea registrar?</h3>
+      <p class="hint">Elija una opción para comenzar.</p>
+      <div class="biglist" id="regTipoList">
+        <button class="bigbtn" type="button" data-tipo="Historia clínica">Historia clínica</button>
+        <button class="bigbtn" type="button" data-tipo="Evolución SOAP">Evolución SOAP</button>
+        <button class="bigbtn" type="button" data-tipo="Nota de enfermería">Nota de enfermería</button>
+        <button class="bigbtn" type="button" data-tipo="Terapia">Terapia</button>
+        <button class="bigbtn" type="button" data-tipo="Epicrisis">Epicrisis</button>
       </div>
-      <div class="ptop"><h3>Historias y notas de evolución</h3><span class="count" id="regCount">0 registros</span></div>
-      <div class="tablebox">
-        <table><thead><tr><th>Fecha</th><th>Paciente</th><th>Documento</th><th>Tipo</th><th>Médico</th><th></th></tr></thead>
-        <tbody id="regTb"></tbody></table>
+    </div>
+
+    <!-- Paso 2: buscar paciente y ver / crear notas -->
+    <div id="regPanel" hidden>
+      <div class="panel">
+        <div class="ptop">
+          <h3 id="regTipoTit">—</h3>
+          <button class="btn ghost mini" id="regVolver" type="button">← Cambiar tipo</button>
+        </div>
+        <div class="grid">
+          <div class="wide"><label class="req">Buscar paciente (nombre o documento)</label>
+            <input id="regBuscar" list="pacFull" placeholder="Escriba el nombre o el número de documento" autocomplete="off">
+            <datalist id="pacFull"></datalist></div>
+          <div><label>Paciente</label><input id="regPacNom" readonly placeholder="—"></div>
+          <div><label>Documento</label><input id="regPacDoc" readonly placeholder="—"></div>
+        </div>
+        <div class="actions">
+          <button class="btn" id="regNueva" type="button" disabled>+ Nueva nota</button>
+          <span class="msg" id="regMsg"></span>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="ptop"><h3>Notas anteriores</h3><span class="count" id="regCount">0 registros</span></div>
+        <div class="tablebox">
+          <table><thead><tr><th>Fecha y hora</th><th>Tipo</th><th>Profesional</th><th>Contenido</th><th></th></tr></thead>
+          <tbody id="regTb"></tbody></table>
+        </div>
       </div>
     </div>
   </section>
@@ -209,9 +234,9 @@
     </div>
     <div class="panel">
       <div class="ptop"><h3>Usuarios y control de acceso</h3><span class="count" id="usrCount">0 usuarios</span></div>
-      <p class="hint">Solo el <b>usuario maestro</b> entra a Configuraciones. Activa o desactiva el acceso de cada persona a cada módulo con los interruptores. La columna <b>Editar</b> autoriza a modificar admisiones ya guardadas. El permiso de <b>Config</b> está reservado y solo tú puedes concederlo.</p>
+      <p class="hint">Solo el <b>usuario maestro</b> entra a Configuraciones. Activa o desactiva el acceso de cada persona a cada módulo con los interruptores. La columna <b>Editar</b> autoriza a modificar admisiones guardadas y la columna <b>Eliminar</b> autoriza a borrar notas clínicas. El permiso de <b>Config</b> está reservado y solo tú puedes concederlo.</p>
       <div class="tablebox">
-        <table><thead><tr><th>Usuario</th><th>Rol</th><th>Admisión</th><th>Registro</th><th>Consulta</th><th>Config</th><th>Editar</th><th>Estado</th><th>Último acceso</th><th></th></tr></thead>
+        <table><thead><tr><th>Usuario</th><th>Rol</th><th>Admisión</th><th>Registro</th><th>Consulta</th><th>Config</th><th>Editar</th><th>Eliminar</th><th>Estado</th><th>Último acceso</th><th></th></tr></thead>
         <tbody id="usrTb"></tbody></table>
       </div>
       <h3 style="margin-top:18px">Crear usuario</h3>
@@ -229,16 +254,16 @@
   <!-- ===================== MODAL NUEVA NOTA ===================== -->
   <div class="overlay" id="ovNota" hidden>
     <div class="modal">
-      <div class="mtop"><h3>Nueva nota clínica</h3><button class="mx" id="notaX" type="button">&times;</button></div>
+      <div class="mtop"><h3 id="notaTit">Nueva nota clínica</h3><button class="mx" id="notaX" type="button">&times;</button></div>
       <form id="formNota" autocomplete="off">
         <div class="grid">
-          <div><label>Tipo de nota</label><select id="ntTipo"><option>Historia clínica</option><option>Evolución SOAP</option><option>Nota de enfermería</option><option>Terapia</option><option>Epicrisis</option></select></div>
-          <div><label class="req">Paciente</label><input id="ntPac" list="pacList" placeholder="Nombre del paciente"><datalist id="pacList"></datalist></div>
-          <div><label class="req">Documento</label><input id="ntDoc" inputmode="numeric"></div>
-          <div><label>Médico / profesional</label><input id="ntMed"></div>
-          <div class="wide"><label>Contenido de la nota</label><textarea id="ntTexto" rows="5" placeholder="S: ... O: ... A: ... P: ..."></textarea></div>
+          <div><label>Tipo de nota</label><input id="ntTipo" readonly></div>
+          <div><label>Paciente</label><input id="ntPac" readonly></div>
+          <div><label>Documento</label><input id="ntDoc" readonly></div>
+          <div><label>Médico / profesional</label><input id="ntMed" placeholder="Dr(a). ..."></div>
+          <div class="wide"><label class="req">Contenido de la nota</label><textarea id="ntTexto" rows="6" placeholder="S: ... O: ... A: ... P: ..."></textarea></div>
         </div>
-        <div class="actions"><button class="btn" type="submit">Guardar nota</button><button class="btn ghost" id="notaCancel" type="button">Cancelar</button><span class="msg" id="ntMsg"></span></div>
+        <div class="actions"><button class="btn" id="notaGuardar" type="submit">Guardar nota</button><button class="btn ghost" id="notaCancel" type="button">Cancelar</button><span class="msg" id="ntMsg"></span></div>
       </form>
     </div>
   </div>
