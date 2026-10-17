@@ -164,3 +164,5 @@ td.csw{text-align:center}
 .pwrow input{flex:1 1 auto}
 .pwrow .btn{flex:0 0 auto}
 .gbox .msg{text-align:center;margin-top:12px;min-height:18px}
+td.cellwrap{white-space:normal;max-width:360px;line-height:1.4;color:var(--txt)}
+#csPdf:disabled{opacity:.45;cursor:not-allowed}

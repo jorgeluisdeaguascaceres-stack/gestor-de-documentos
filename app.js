@@ -26,14 +26,14 @@ function flash(el, texto, tipo){ el.textContent=texto; el.className='msg'+(tipo?
    AUTENTICACIÓN Y PERMISOS
    ============================================================ */
 const ROLES = { maestro:'Maestro', admin:'Administrador', medico:'Médico', administrativo:'Administrativo' };
-const MODS = ['admision','registro','config'];
+const MODS = ['admision','registro','consulta','config'];
 function defaultPerms(rol){
   switch(rol){
-    case 'maestro': return {admision:true, registro:true, config:true};
-    case 'admin':   return {admision:true, registro:true, config:false};
-    case 'medico':  return {admision:false, registro:true, config:false};
-    case 'administrativo': return {admision:true, registro:false, config:false};
-    default: return {admision:false, registro:false, config:false};
+    case 'maestro': return {admision:true, registro:true, consulta:true, config:true, editar:true};
+    case 'admin':   return {admision:true, registro:true, consulta:true, config:false, editar:true};
+    case 'medico':  return {admision:false, registro:true, consulta:true, config:false, editar:false};
+    case 'administrativo': return {admision:true, registro:false, consulta:true, config:false, editar:false};
+    default: return {admision:false, registro:false, consulta:false, config:false, editar:false};
   }
 }
 function bytesToHex(b){ return Array.from(b).map(x=>x.toString(16).padStart(2,'0')).join(''); }
@@ -104,7 +104,7 @@ $('formAlta').addEventListener('submit', async (e)=>{ e.preventDefault();
 $('btnSalir').addEventListener('click', salir);
 
 /* ---------- navegación entre vistas ---------- */
-const VIEW_PERM = { admision:'admision', registro:'registro', config:'config' };
+const VIEW_PERM = { admision:'admision', registro:'registro', consulta:'consulta', config:'config' };
 function goView(name){
   if(VIEW_PERM[name] && !can(VIEW_PERM[name])){ alert('No tienes permiso para acceder a este módulo.'); return; }
   document.querySelectorAll('.view').forEach(v=> v.classList.toggle('sel', v.id===name));
@@ -133,18 +133,37 @@ function renderAdm(){
     tr.appendChild(td(a.eps));
     tr.appendChild(td(a.medico));
     const acc=document.createElement('td'); acc.className='right';
+    if(can('editar')){
+      const be=document.createElement('button'); be.className='btn ghost mini'; be.textContent='Editar'; be.style.marginRight='6px';
+      be.addEventListener('click', ()=> cargarAdm(a.id));
+      acc.appendChild(be);
+    }
     const bd=document.createElement('button'); bd.className='btn del mini'; bd.textContent='Eliminar';
-    bd.addEventListener('click', ()=>{ if(confirm('¿Eliminar esta admisión?')){ const l=store.get('admisiones',[]).filter(x=>x.id!==a.id); store.set('admisiones',l); renderAdm(); refreshPacList(); } });
+    bd.addEventListener('click', ()=>{ if(confirm('¿Eliminar esta admisión?')){ const l=store.get('admisiones',[]).filter(x=>x.id!==a.id); store.set('admisiones',l); if(editAdmId===a.id) cancelarEdicionAdm(); renderAdm(); refreshPacList(); } });
     acc.appendChild(bd); tr.appendChild(acc);
     tb.appendChild(tr);
   });
 }
 
+let editAdmId = null;
 $('formAdm').addEventListener('submit', (e)=>{
   e.preventDefault();
   const doc=$('admDoc').value.trim(), n1=$('admN1').value.trim(), a1=$('admA1').value.trim();
   [['admDoc',doc],['admN1',n1],['admA1',a1]].forEach(([id,v])=> $(id).classList.toggle('bad', !v));
   if(!doc||!n1||!a1){ flash($('admMsg'),'Completa documento, primer nombre y primer apellido.','err'); return; }
+  if(editAdmId){
+    if(!can('editar')){ flash($('admMsg'),'No tienes permiso para editar admisiones.','err'); return; }
+    const l=store.get('admisiones',[]); const r=l.find(x=>x.id===editAdmId);
+    if(!r){ cancelarEdicionAdm(); flash($('admMsg'),'La admisión ya no existe.','err'); renderAdm(); return; }
+    Object.assign(r, { tipoDoc:$('admTipoDoc').value, doc, n1, n2:$('admN2').value.trim(), a1, a2:$('admA2').value.trim(),
+      nac:$('admNac').value, sexo:$('admSexo').value, tel:$('admTel').value.trim(), dir:$('admDir').value.trim(),
+      eps:$('admEps').value.trim(), regimen:$('admReg').value, ingreso:$('admIng').value,
+      fecha:$('admFecha').value || r.fecha, dx:$('admDx').value.trim(), medico:$('admMed').value.trim(),
+      obs:$('admObs').value.trim(), editadoPor:(CURRENT&&CURRENT.usuario)||'', editadoEl:new Date().toISOString() });
+    store.set('admisiones',l);
+    flash($('admMsg'),'Admisión actualizada correctamente.','ok');
+    cancelarEdicionAdm(); renderAdm(); refreshPacList(); return;
+  }
   const reg={ id:uid(), tipoDoc:$('admTipoDoc').value, doc, n1, n2:$('admN2').value.trim(), a1, a2:$('admA2').value.trim(),
     nac:$('admNac').value, sexo:$('admSexo').value, tel:$('admTel').value.trim(), dir:$('admDir').value.trim(),
     eps:$('admEps').value.trim(), regimen:$('admReg').value, ingreso:$('admIng').value,
@@ -154,11 +173,26 @@ $('formAdm').addEventListener('submit', (e)=>{
   flash($('admMsg'),'Admisión guardada correctamente.','ok');
   limpiarAdm(true); renderAdm(); refreshPacList();
 });
+function cargarAdm(id){
+  const a=store.get('admisiones',[]).find(x=>x.id===id); if(!a) return;
+  $('admTipoDoc').value=a.tipoDoc||'CC'; $('admDoc').value=a.doc||''; $('admN1').value=a.n1||''; $('admN2').value=a.n2||'';
+  $('admA1').value=a.a1||''; $('admA2').value=a.a2||''; $('admNac').value=a.nac||''; $('admSexo').value=a.sexo||'';
+  $('admTel').value=a.tel||''; $('admDir').value=a.dir||''; $('admEps').value=a.eps||''; $('admReg').value=a.regimen||'Contributivo';
+  $('admIng').value=a.ingreso||'Urgencias'; $('admFecha').value=(a.fecha||'').slice(0,16); $('admDx').value=a.dx||'';
+  $('admMed').value=a.medico||''; $('admObs').value=a.obs||'';
+  editAdmId=id; $('admGuardar').textContent='Actualizar admisión';
+  $('admLimpiar').textContent='Cancelar edición';
+  flash($('admMsg'),'Editando una admisión existente. Guarda para aplicar los cambios.','ok');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function cancelarEdicionAdm(){
+  editAdmId=null; $('admGuardar').textContent='Guardar admisión'; $('admLimpiar').textContent='Limpiar';
+}
 function limpiarAdm(keepFecha){
   ['admDoc','admN1','admN2','admA1','admA2','admNac','admTel','admDir','admEps','admDx','admMed','admObs'].forEach(id=>{ $(id).value=''; $(id).classList.remove('bad'); });
   if(!keepFecha){ $('admFecha').value=''; }
 }
-$('admLimpiar').addEventListener('click', ()=> limpiarAdm(false));
+$('admLimpiar').addEventListener('click', ()=>{ limpiarAdm(false); cancelarEdicionAdm(); flash($('admMsg'),''); });
 
 /* ============================================================
    MÓDULO 2 · REGISTRO MÉDICO (historias / notas de evolución)
@@ -212,6 +246,99 @@ $('formNota').addEventListener('submit', (e)=>{
 });
 
 /* ============================================================
+   MÓDULO · CONSULTA (búsqueda por documento + exportar PDF)
+   ============================================================ */
+let csResultados = [];
+function fechaSoloDia(iso){ return (iso||'').slice(0,10); }
+function consultaFiltrar(){
+  const doc=$('csDoc').value.trim();
+  const serv=$('csServ').value;
+  const d1=$('csD1').value, d2=$('csD2').value;
+  if(!doc){ flash($('csMsg'),'Indica el número de documento del paciente.','err'); return null; }
+  let lista=store.get('notas',[]).filter(n=> (n.doc||'').trim()===doc);
+  if(serv) lista=lista.filter(n=> n.tipo===serv);
+  if(d1) lista=lista.filter(n=> fechaSoloDia(n.fecha) >= d1);
+  if(d2) lista=lista.filter(n=> fechaSoloDia(n.fecha) <= d2);
+  lista.sort((a,b)=> (a.fecha||'').localeCompare(b.fecha||''));
+  return lista;
+}
+function renderConsulta(lista){
+  csResultados = lista;
+  const tb=$('csTb'); tb.innerHTML='';
+  $('csCount').textContent = lista.length + (lista.length===1?' registro':' registros');
+  $('csPdf').disabled = lista.length===0;
+  const nombre = lista.length ? lista[0].pac : nombrePorDoc($('csDoc').value.trim());
+  $('csPac').textContent = nombre ? ('Paciente: '+nombre+'  ·  Documento: '+$('csDoc').value.trim()) : '';
+  if(!lista.length){ const tr=document.createElement('tr'); const c=td('No hay servicios para ese documento en el rango indicado.'); c.colSpan=5; c.className='vacio'; tr.appendChild(c); tb.appendChild(tr); return; }
+  lista.forEach(n=>{
+    const tr=document.createElement('tr');
+    tr.appendChild(td(fmtFecha(n.fecha)));
+    const tt=document.createElement('td'); const p=document.createElement('span'); p.className='pill cy'; p.textContent=n.tipo; tt.appendChild(p); tr.appendChild(tt);
+    tr.appendChild(td(n.pac));
+    tr.appendChild(td(n.medico));
+    const ct=document.createElement('td'); ct.className='cellwrap'; ct.textContent=n.texto||'—'; tr.appendChild(ct);
+    tb.appendChild(tr);
+  });
+}
+function nombrePorDoc(doc){
+  const a=store.get('admisiones',[]).find(x=>(x.doc||'').trim()===doc); if(a) return nombrePaciente(a);
+  const n=store.get('notas',[]).find(x=>(x.doc||'').trim()===doc); return n?n.pac:'';
+}
+$('formCons').addEventListener('submit', (e)=>{ e.preventDefault(); const l=consultaFiltrar(); if(l){ flash($('csMsg'),''); renderConsulta(l); } });
+$('csLimpiar').addEventListener('click', ()=>{ $('csDoc').value=''; $('csServ').value=''; $('csD1').value=''; $('csD2').value=''; renderConsulta([]); $('csPac').textContent=''; flash($('csMsg'),''); });
+$('csServ').addEventListener('change', ()=>{ if($('csDoc').value.trim()){ const l=consultaFiltrar(); if(l) renderConsulta(l); } });
+$('csPdf').addEventListener('click', consultaPDF);
+
+function consultaPDF(){
+  if(!csResultados.length){ flash($('csMsg'),'Primero realiza una consulta con resultados.','err'); return; }
+  if(!(window.jspdf && window.jspdf.jsPDF)){ flash($('csMsg'),'No se pudo cargar el generador de PDF.','err'); return; }
+  const { jsPDF } = window.jspdf;
+  const d = new jsPDF({ unit:'pt', format:'a4' });
+  const ml=48, mr=48, mt=56; const pw=d.internal.pageSize.getWidth(), ph=d.internal.pageSize.getHeight();
+  const ancho = pw-ml-mr; let y=mt;
+  const ips=store.get('ips',{});
+  const doc=$('csDoc').value.trim();
+  const nombre=csResultados[0].pac || nombrePorDoc(doc) || '—';
+  const d1=$('csD1').value, d2=$('csD2').value, serv=$('csServ').value;
+  function nl(h){ if(y+h > ph-48){ d.addPage(); y=mt; } }
+  function linea(){ d.setDrawColor(0,200,248); d.setLineWidth(1); d.line(ml,y,pw-mr,y); y+=14; }
+  // encabezado
+  d.setFont('helvetica','bold'); d.setFontSize(16); d.setTextColor(11,22,34);
+  d.text((ips.nombre||'NEXUSMED · IPS'), ml, y); y+=20;
+  d.setFont('helvetica','normal'); d.setFontSize(9); d.setTextColor(90,105,120);
+  const sub=[ips.nit?('NIT '+ips.nit):'', ips.hab?('Habilitación '+ips.hab):''].filter(Boolean).join('   ·   ');
+  if(sub){ d.text(sub, ml, y); y+=14; }
+  d.setFontSize(12); d.setTextColor(11,22,34); d.setFont('helvetica','bold');
+  d.text('Reporte de servicios clínicos', ml, y); y+=16;
+  d.setFont('helvetica','normal'); d.setFontSize(10); d.setTextColor(40,50,65);
+  d.text('Paciente: '+nombre, ml, y); y+=14;
+  d.text('Documento: '+doc, ml, y); y+=14;
+  const rango = (d1||d2) ? ('Rango: '+(d1||'inicio')+' a '+(d2||'hoy')) : 'Rango: todas las fechas';
+  d.text(rango+'   ·   Servicio: '+(serv||'Todos'), ml, y); y+=14;
+  d.text('Generado: '+fmtFecha(new Date().toISOString())+'   ·   Total: '+csResultados.length+' registro(s)', ml, y); y+=10;
+  linea();
+  // registros
+  csResultados.forEach((n,i)=>{
+    nl(60);
+    d.setFont('helvetica','bold'); d.setFontSize(11); d.setTextColor(0,120,160);
+    d.text((i+1)+'. '+n.tipo, ml, y); y+=15;
+    d.setFont('helvetica','normal'); d.setFontSize(9); d.setTextColor(90,105,120);
+    d.text('Fecha: '+fmtFecha(n.fecha)+'      Profesional: '+(n.medico||'—'), ml, y); y+=15;
+    d.setFontSize(10); d.setTextColor(25,35,48);
+    const txt = (n.texto&&n.texto.trim()) ? n.texto : '(sin contenido)';
+    const lineas = d.splitTextToSize(txt, ancho);
+    lineas.forEach(ln=>{ nl(14); d.text(ln, ml, y); y+=14; });
+    y+=8; nl(16); d.setDrawColor(210,220,230); d.setLineWidth(0.5); d.line(ml,y,pw-mr,y); y+=16;
+  });
+  // pie con numeración
+  const tot=d.internal.getNumberOfPages();
+  for(let p=1;p<=tot;p++){ d.setPage(p); d.setFontSize(8); d.setTextColor(150,160,172); d.text('NEXUSMED · documento generado localmente · página '+p+' de '+tot, ml, ph-28); }
+  const safe=(nombre||'paciente').replace(/[^a-z0-9]+/gi,'_').replace(/^_+|_+$/g,'').toLowerCase();
+  d.save('consulta_'+(doc||'doc')+'_'+safe+'.pdf');
+  flash($('csMsg'),'PDF generado.','ok');
+}
+
+/* ============================================================
    MÓDULO 3 · CONFIGURACIONES (parámetros IPS + usuarios)
    ============================================================ */
 /* -- parámetros de la IPS -- */
@@ -239,7 +366,15 @@ function renderUsr(){
       const tk=document.createElement('span'); tk.className='track';
       lab.appendChild(inp); lab.appendChild(tk); c.appendChild(lab); tr.appendChild(c);
     });
-    const ec=document.createElement('td'); const ep=document.createElement('span'); ep.className='pill '+(u.activo?'ok':'off'); ep.textContent=u.activo?'Activo':'Inactivo'; ec.appendChild(ep); tr.appendChild(ec);
+    /* columna Editar admisiones (permiso independiente) */
+    const ce=document.createElement('td'); ce.className='csw';
+    const le=document.createElement('label'); le.className='sw';
+    const ie=document.createElement('input'); ie.type='checkbox'; ie.checked=!!(u.perms&&u.perms.editar);
+    if(u.rol==='maestro') ie.disabled=true;
+    ie.addEventListener('change', ()=>{ const l=usuarios(); const t=l.find(x=>x.id===u.id); if(!t) return; if(!t.perms) t.perms={}; t.perms.editar=ie.checked; setUsuarios(l); });
+    const tke=document.createElement('span'); tke.className='track';
+    le.appendChild(ie); le.appendChild(tke); ce.appendChild(le);
+    const ec=document.createElement('td'); const ep=document.createElement('span'); ep.className='pill '+(u.activo?'ok':'off'); ep.textContent=u.activo?'Activo':'Inactivo'; ec.appendChild(ep); tr.appendChild(ce); tr.appendChild(ec);
     tr.appendChild(td(u.ultimo?fmtFecha(u.ultimo):'Nunca'));
     const acc=document.createElement('td'); acc.className='right';
     if(u.rol==='maestro'){

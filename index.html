@@ -59,6 +59,16 @@
         <span class="moddesc">Historias clínicas y notas de evolución de la IPS.</span>
       </button>
 
+      <button class="modcard" data-view="consulta" type="button">
+        <span class="tag">ACTIVO</span>
+        <span class="modicon">
+          <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/><path d="M8 11h6M11 8v6"/></svg>
+        </span>
+        <span class="modtitle">Consulta</span>
+        <span class="moddesc">Buscar servicios por documento y rango de fechas, y exportar en PDF.</span>
+      </button>
+
       <button class="modcard" data-view="config" type="button">
         <span class="tag">ACTIVO</span>
         <span class="modicon">
@@ -140,6 +150,45 @@
     </div>
   </section>
 
+  <!-- ===================== CONSULTA ===================== -->
+  <section id="consulta" class="view">
+    <div class="viewhead">
+      <button class="back" data-view="home" type="button">← Inicio</button>
+      <h2>Consulta clínica</h2>
+      <span class="crumb">Módulo &middot; Búsqueda y exportación</span>
+    </div>
+    <div class="panel">
+      <h3>Buscar por documento</h3>
+      <form id="formCons" autocomplete="off">
+        <div class="grid">
+          <div><label class="req">Número de documento</label><input id="csDoc" inputmode="numeric" placeholder="1234567890"></div>
+          <div><label>Servicio</label>
+            <select id="csServ">
+              <option value="">Todos los servicios</option>
+              <option>Historia clínica</option><option>Evolución SOAP</option>
+              <option>Nota de enfermería</option><option>Terapia</option><option>Epicrisis</option>
+            </select></div>
+          <div><label>Fecha inicio</label><input id="csD1" type="date"></div>
+          <div><label>Fecha fin</label><input id="csD2" type="date"></div>
+        </div>
+        <div class="actions">
+          <button class="btn" type="submit">Consultar</button>
+          <button class="btn ghost" id="csLimpiar" type="button">Limpiar</button>
+          <button class="btn" id="csPdf" type="button" disabled>Descargar PDF</button>
+          <span class="msg" id="csMsg"></span>
+        </div>
+      </form>
+    </div>
+    <div class="panel">
+      <div class="ptop"><h3>Resultados</h3><span class="count" id="csCount">0 registros</span></div>
+      <div id="csPac" class="hint" style="margin:0 0 10px"></div>
+      <div class="tablebox">
+        <table><thead><tr><th>Fecha</th><th>Servicio</th><th>Paciente</th><th>Médico / profesional</th><th>Contenido</th></tr></thead>
+        <tbody id="csTb"></tbody></table>
+      </div>
+    </div>
+  </section>
+
   <!-- ===================== CONFIGURACIONES ===================== -->
   <section id="config" class="view">
     <div class="viewhead">
@@ -160,9 +209,9 @@
     </div>
     <div class="panel">
       <div class="ptop"><h3>Usuarios y control de acceso</h3><span class="count" id="usrCount">0 usuarios</span></div>
-      <p class="hint">Solo el <b>usuario maestro</b> entra a Configuraciones. Activa o desactiva el acceso de cada persona a cada módulo con los interruptores. El permiso de <b>Config</b> está reservado y solo tú puedes concederlo.</p>
+      <p class="hint">Solo el <b>usuario maestro</b> entra a Configuraciones. Activa o desactiva el acceso de cada persona a cada módulo con los interruptores. La columna <b>Editar</b> autoriza a modificar admisiones ya guardadas. El permiso de <b>Config</b> está reservado y solo tú puedes concederlo.</p>
       <div class="tablebox">
-        <table><thead><tr><th>Usuario</th><th>Rol</th><th>Admisión</th><th>Registro</th><th>Config</th><th>Estado</th><th>Último acceso</th><th></th></tr></thead>
+        <table><thead><tr><th>Usuario</th><th>Rol</th><th>Admisión</th><th>Registro</th><th>Consulta</th><th>Config</th><th>Editar</th><th>Estado</th><th>Último acceso</th><th></th></tr></thead>
         <tbody id="usrTb"></tbody></table>
       </div>
       <h3 style="margin-top:18px">Crear usuario</h3>
@@ -240,6 +289,7 @@
     </div>
   </div>
 </div>
+<script src="jspdf.umd.min.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
