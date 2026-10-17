@@ -21,6 +21,24 @@ Desde la lista de notas, el botón **PDF EPS** genera la historia clínica en
 PDF con el formato institucional (encabezado de la IPS, recuadro del paciente,
 secciones y firma del profesional), lista para enviar a la EPS.
 
+### Examen físico con autollenado "Normal"
+Cada apartado del examen físico tiene un botón **Normal** que escribe el
+hallazgo normal estándar (p. ej. en Abdomen pone “Abdomen blando, depresible,
+no doloroso...”). El botón **Marcar todo normal** rellena de una sola vez los
+apartados que aún estén vacíos. El médico solo cambia lo que encuentre anormal.
+
+### Documentos aparte: Paraclínicos, Orden médica y Fórmula médica
+Estos tres apartados se escriben dentro de la historia clínica pero se
+**descargan como PDF independientes**: uno por Paraclínicos (si se solicitan),
+otro por Orden médica y otro por Fórmula médica. Cada uno sale con el mismo
+encabezado de la IPS, los datos del paciente y la firma. La historia clínica
+queda limpia (sin esos tres apartados en su cuerpo).
+
+### Vista previa (botón “Ver”)
+El botón **Ver** abre una vista previa de todos los documentos antes de
+imprimir. Desde ahí puede descargar la historia clínica, cada documento
+aparte por separado, o **Descargar todo** de una vez.
+
 ## Respaldo y traslado entre equipos (Config → Respaldo)
 Como la información se guarda en cada dispositivo, usa la pestaña **Respaldo**:
 - **Exportar respaldo**: descarga un archivo `.json` con usuarios, admisiones,

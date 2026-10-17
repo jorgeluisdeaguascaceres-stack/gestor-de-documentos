@@ -360,16 +360,16 @@
             <div><label>Quirúrgicos</label><textarea id="hcQuir" rows="2"></textarea></div>
             <div><label>Gineco-obstétricos</label><textarea id="hcGineco" rows="2"></textarea></div>
           </div>
-          <h4 class="sechc">Examen físico</h4>
+          <h4 class="sechc">Examen físico <button type="button" class="normall" id="hcNormAll">Marcar todo normal</button></h4>
           <div class="grid">
-            <div><label>Estado general y conciencia</label><textarea id="hcExGen" rows="2"></textarea></div>
-            <div><label>Cabeza, cara y cuello</label><textarea id="hcExCab" rows="2"></textarea></div>
-            <div><label>Tórax</label><textarea id="hcExTorax" rows="2"></textarea></div>
-            <div><label>Abdomen</label><textarea id="hcExAbd" rows="2"></textarea></div>
-            <div><label>Genitales</label><textarea id="hcExGen2" rows="2"></textarea></div>
-            <div><label>Extremidades</label><textarea id="hcExExt" rows="2"></textarea></div>
-            <div><label>Sistema nervioso central</label><textarea id="hcExSNC" rows="2"></textarea></div>
-            <div><label>Piel y faneras</label><textarea id="hcExPiel" rows="2"></textarea></div>
+            <div><div class="labrow"><label>Estado general y conciencia</label><button type="button" class="normbtn" data-norm="hcExGen">Normal</button></div><textarea id="hcExGen" rows="2"></textarea></div>
+            <div><div class="labrow"><label>Cabeza, cara y cuello</label><button type="button" class="normbtn" data-norm="hcExCab">Normal</button></div><textarea id="hcExCab" rows="2"></textarea></div>
+            <div><div class="labrow"><label>Tórax</label><button type="button" class="normbtn" data-norm="hcExTorax">Normal</button></div><textarea id="hcExTorax" rows="2"></textarea></div>
+            <div><div class="labrow"><label>Abdomen</label><button type="button" class="normbtn" data-norm="hcExAbd">Normal</button></div><textarea id="hcExAbd" rows="2"></textarea></div>
+            <div><div class="labrow"><label>Genitales</label><button type="button" class="normbtn" data-norm="hcExGen2">Normal</button></div><textarea id="hcExGen2" rows="2"></textarea></div>
+            <div><div class="labrow"><label>Extremidades</label><button type="button" class="normbtn" data-norm="hcExExt">Normal</button></div><textarea id="hcExExt" rows="2"></textarea></div>
+            <div><div class="labrow"><label>Sistema nervioso central</label><button type="button" class="normbtn" data-norm="hcExSNC">Normal</button></div><textarea id="hcExSNC" rows="2"></textarea></div>
+            <div><div class="labrow"><label>Piel y faneras</label><button type="button" class="normbtn" data-norm="hcExPiel">Normal</button></div><textarea id="hcExPiel" rows="2"></textarea></div>
           </div>
           <h4 class="sechc">Diagnóstico</h4>
           <div class="grid">
@@ -379,14 +379,32 @@
           <div class="grid">
             <div class="wide"><label>Plan de manejo</label><textarea id="hcPlan" rows="3"></textarea></div>
           </div>
-          <h4 class="sechc">Paraclínicos</h4>
+          <h4 class="sechc">Paraclínicos <span class="hcsep">· documento aparte</span></h4>
           <div class="grid">
-            <div class="wide"><label>Paraclínicos</label><textarea id="hcPara" rows="2"></textarea></div>
+            <div class="wide"><label>Paraclínicos solicitados (uno por línea)</label><textarea id="hcPara" rows="2" placeholder="Hemograma&#10;Uroanálisis"></textarea></div>
+          </div>
+          <h4 class="sechc">Órdenes médicas <span class="hcsep">· documento aparte</span></h4>
+          <div class="grid">
+            <div class="wide"><label>Órdenes médicas (una por línea)</label><textarea id="hcOrdenes" rows="2" placeholder="Oxigenoterapia&#10;Curación diaria"></textarea></div>
+          </div>
+          <h4 class="sechc">Fórmula médica <span class="hcsep">· documento aparte</span></h4>
+          <div class="grid">
+            <div class="wide"><label>Medicamentos (uno por línea: nombre, dosis, vía, frecuencia)</label><textarea id="hcFormula" rows="3" placeholder="Acetaminofén 500 mg vía oral cada 8 horas por 3 días"></textarea></div>
           </div>
         </div>
 
         <div class="actions"><button class="btn" id="notaGuardar" type="submit">Guardar nota</button><button class="btn ghost" id="notaCancel" type="button">Cancelar</button><span class="msg" id="ntMsg"></span></div>
       </form>
+    </div>
+  </div>
+
+  <!-- ===================== VISTA PREVIA (antes de imprimir) ===================== -->
+  <div class="overlay" id="ovPrev" hidden>
+    <div class="modal prev">
+      <div class="mtop"><h3 id="prevTit">Vista previa</h3><button class="mx" id="prevX" type="button">&times;</button></div>
+      <p class="hint">Así se verán los documentos. La historia clínica y cada paraclínico, orden médica o fórmula se descargan como <b>PDF separados</b>.</p>
+      <div id="prevDocs"></div>
+      <div class="actions" id="prevActions" style="flex-wrap:wrap;gap:8px"></div>
     </div>
   </div>
 </main>
