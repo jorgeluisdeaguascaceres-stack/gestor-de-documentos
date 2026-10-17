@@ -87,7 +87,7 @@ function entrar(u){
   $('userRole').textContent = (ROLES[u.rol]||u.rol).toUpperCase();
   aplicarPermisos();
   renderAdm(); loadIps(); refreshPacList(); regMostrarTipos();
-  if(can('config')) renderUsr();
+  if(can('config')){ renderUsr(); renderUsrList(); }
   goView('home');
 }
 function salir(){ store.set('sesion', null); CURRENT=null; mostrarGate(); }
@@ -441,7 +441,6 @@ $('formIps').addEventListener('submit', (e)=>{
 function renderUsr(){
   const lista=usuarios();
   const tb=$('usrTb'); tb.innerHTML='';
-  $('usrCount').textContent = lista.length + (lista.length===1?' usuario':' usuarios');
   lista.forEach(u=>{
     const tr=document.createElement('tr');
     tr.appendChild(td(u.usuario));
@@ -471,21 +470,43 @@ function renderUsr(){
     ix.addEventListener('change', ()=>{ const l=usuarios(); const t=l.find(x=>x.id===u.id); if(!t) return; if(!t.perms) t.perms={}; t.perms.eliminar=ix.checked; setUsuarios(l); });
     const tkx=document.createElement('span'); tkx.className='track';
     lx.appendChild(ix); lx.appendChild(tkx); cx.appendChild(lx);
-    const ec=document.createElement('td'); const ep=document.createElement('span'); ep.className='pill '+(u.activo?'ok':'off'); ep.textContent=u.activo?'Activo':'Inactivo'; ec.appendChild(ep); tr.appendChild(ce); tr.appendChild(cx); tr.appendChild(ec);
+    tr.appendChild(ce); tr.appendChild(cx);
+    tb.appendChild(tr);
+  });
+}
+/* lista de gestión de usuarios (estado / último acceso / acciones) */
+function renderUsrList(){
+  const lista=usuarios();
+  const tb=$('usrListTb'); if(!tb) return; tb.innerHTML='';
+  const cnt=$('usrCount'); if(cnt) cnt.textContent = lista.length + (lista.length===1?' usuario':' usuarios');
+  lista.forEach(u=>{
+    const tr=document.createElement('tr');
+    tr.appendChild(td(u.usuario));
+    const rc=document.createElement('td'); const rp=document.createElement('span'); rp.className='pill '+((u.rol==='maestro'||u.rol==='admin')?'cy':'gr'); rp.textContent=ROLES[u.rol]||u.rol; rc.appendChild(rp); tr.appendChild(rc);
+    const ec=document.createElement('td'); const ep=document.createElement('span'); ep.className='pill '+(u.activo?'ok':'off'); ep.textContent=u.activo?'Activo':'Inactivo'; ec.appendChild(ep); tr.appendChild(ec);
     tr.appendChild(td(u.ultimo?fmtFecha(u.ultimo):'Nunca'));
     const acc=document.createElement('td'); acc.className='right';
     if(u.rol==='maestro'){
       const b=document.createElement('span'); b.className='pill gr'; b.textContent='Tú (maestro)'; acc.appendChild(b);
     } else {
       const bt=document.createElement('button'); bt.className='btn ghost mini'; bt.textContent=u.activo?'Desactivar':'Activar';
-      bt.addEventListener('click', ()=>{ const l=usuarios(); const t=l.find(x=>x.id===u.id); if(t){t.activo=!t.activo; setUsuarios(l); renderUsr();} });
+      bt.addEventListener('click', ()=>{ const l=usuarios(); const t=l.find(x=>x.id===u.id); if(t){t.activo=!t.activo; setUsuarios(l); renderUsrList();} });
       const bd=document.createElement('button'); bd.className='btn del mini'; bd.textContent='Eliminar'; bd.style.marginLeft='6px';
-      bd.addEventListener('click', ()=>{ if(confirm('¿Eliminar el usuario '+u.usuario+'?')){ setUsuarios(usuarios().filter(x=>x.id!==u.id)); renderUsr(); } });
+      bd.addEventListener('click', ()=>{ if(confirm('¿Eliminar el usuario '+u.usuario+'?')){ setUsuarios(usuarios().filter(x=>x.id!==u.id)); renderUsr(); renderUsrList(); } });
       acc.appendChild(bt); acc.appendChild(bd);
     }
     tr.appendChild(acc); tb.appendChild(tr);
   });
 }
+/* navegación por apartados dentro de Configuraciones */
+function cfgTab(name){
+  document.querySelectorAll('.cfgtab').forEach(b=>b.classList.toggle('active', b.getAttribute('data-cfg')===name));
+  document.querySelectorAll('.cfgpane').forEach(p=>{ p.hidden = (p.id!=='cfg-'+name); });
+}
+(function(){
+  const nav=$('cfgNav');
+  if(nav) nav.addEventListener('click', (e)=>{ const b=e.target.closest('[data-cfg]'); if(b) cfgTab(b.getAttribute('data-cfg')); });
+})();
 $('formUsr').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const usuario=$('nuUsuario').value.trim().toLowerCase(), clave=$('nuClave').value, rol=$('nuRol').value;
@@ -496,7 +517,7 @@ $('formUsr').addEventListener('submit', async (e)=>{
   const nuevo = { id:uid(), usuario, rol, activo:true, ultimo:null, salt:h.salt, hash:h.hash, perms:defaultPerms(rol) };
   const l=usuarios(); l.push(nuevo); setUsuarios(l);
   $('nuUsuario').value=''; $('nuClave').value='';
-  flash($('usrMsg'),'Usuario creado con permisos de '+(ROLES[rol]||rol)+'.','ok'); renderUsr();
+  flash($('usrMsg'),'Usuario creado con permisos de '+(ROLES[rol]||rol)+'.','ok'); renderUsr(); renderUsrList();
 });
 
 /* ---------- arranque ---------- */

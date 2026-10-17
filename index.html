@@ -221,33 +221,66 @@
       <h2>Configuraciones</h2>
       <span class="crumb">Módulo &middot; Administración</span>
     </div>
-    <div class="panel">
-      <h3>Parámetros de la IPS</h3>
-      <form id="formIps" autocomplete="off">
-        <div class="grid">
-          <div class="wide"><label>Nombre de la IPS</label><input id="ipsNombre" placeholder="IPS ..."></div>
-          <div><label>NIT</label><input id="ipsNit" inputmode="numeric" placeholder="900123456"></div>
-          <div><label>Código de habilitación</label><input id="ipsHab"></div>
+    <div class="cfgwrap">
+      <nav class="cfgnav" id="cfgNav">
+        <button class="cfgtab active" data-cfg="usuarios" type="button">Registro de usuario</button>
+        <button class="cfgtab" data-cfg="matriz" type="button">Matriz de permisos</button>
+        <button class="cfgtab" data-cfg="ips" type="button">Registro de la IPS</button>
+      </nav>
+      <div class="cfgbody">
+
+        <!-- Apartado: Registro de usuario -->
+        <div class="cfgpane" id="cfg-usuarios">
+          <div class="panel">
+            <h3>Crear usuario</h3>
+            <p class="hint">Registre a cada persona del equipo. Luego defina qué puede hacer en la <b>Matriz de permisos</b>.</p>
+            <form id="formUsr" autocomplete="off">
+              <div class="grid">
+                <div><label class="req">Usuario</label><input id="nuUsuario" placeholder="maria.gomez"></div>
+                <div><label class="req">Contraseña</label><input id="nuClave" type="password" placeholder="mínimo 8"></div>
+                <div><label>Rol</label><select id="nuRol"><option value="administrativo">Administrativo (admisiones)</option><option value="medico">Médico (registro clínico)</option><option value="admin">Administrador (admisión + registro)</option></select></div>
+              </div>
+              <div class="actions"><button class="btn" type="submit">Crear usuario</button><span class="msg" id="usrMsg"></span></div>
+            </form>
+          </div>
+          <div class="panel">
+            <div class="ptop"><h3>Usuarios registrados</h3><span class="count" id="usrCount">0 usuarios</span></div>
+            <div class="tablebox">
+              <table><thead><tr><th>Usuario</th><th>Rol</th><th>Estado</th><th>Último acceso</th><th></th></tr></thead>
+              <tbody id="usrListTb"></tbody></table>
+            </div>
+          </div>
         </div>
-        <div class="actions"><button class="btn" type="submit">Guardar parámetros</button><span class="msg" id="ipsMsg"></span></div>
-      </form>
-    </div>
-    <div class="panel">
-      <div class="ptop"><h3>Usuarios y control de acceso</h3><span class="count" id="usrCount">0 usuarios</span></div>
-      <p class="hint">Solo el <b>usuario maestro</b> entra a Configuraciones. Activa o desactiva el acceso de cada persona a cada módulo con los interruptores. La columna <b>Editar</b> autoriza a modificar admisiones guardadas y la columna <b>Eliminar</b> autoriza a borrar notas clínicas. El permiso de <b>Config</b> está reservado y solo tú puedes concederlo.</p>
-      <div class="tablebox">
-        <table><thead><tr><th>Usuario</th><th>Rol</th><th>Admisión</th><th>Registro</th><th>Consulta</th><th>Config</th><th>Editar</th><th>Eliminar</th><th>Estado</th><th>Último acceso</th><th></th></tr></thead>
-        <tbody id="usrTb"></tbody></table>
+
+        <!-- Apartado: Matriz de permisos -->
+        <div class="cfgpane" id="cfg-matriz" hidden>
+          <div class="panel">
+            <div class="ptop"><h3>Matriz de permisos</h3></div>
+            <p class="hint">Solo el <b>usuario maestro</b> administra permisos. Active o desactive el acceso de cada persona a cada módulo con los interruptores. La columna <b>Editar</b> autoriza a modificar admisiones guardadas y la columna <b>Eliminar</b> autoriza a borrar notas clínicas. El permiso de <b>Config</b> está reservado y solo tú puedes concederlo.</p>
+            <div class="tablebox">
+              <table><thead><tr><th>Usuario</th><th>Rol</th><th>Admisión</th><th>Registro</th><th>Consulta</th><th>Config</th><th>Editar</th><th>Eliminar</th></tr></thead>
+              <tbody id="usrTb"></tbody></table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Apartado: Registro de la IPS -->
+        <div class="cfgpane" id="cfg-ips" hidden>
+          <div class="panel">
+            <h3>Parámetros de la IPS</h3>
+            <p class="hint">Datos institucionales que aparecerán en los documentos generados.</p>
+            <form id="formIps" autocomplete="off">
+              <div class="grid">
+                <div class="wide"><label>Nombre de la IPS</label><input id="ipsNombre" placeholder="IPS ..."></div>
+                <div><label>NIT</label><input id="ipsNit" inputmode="numeric" placeholder="900123456"></div>
+                <div><label>Código de habilitación</label><input id="ipsHab"></div>
+              </div>
+              <div class="actions"><button class="btn" type="submit">Guardar parámetros</button><span class="msg" id="ipsMsg"></span></div>
+            </form>
+          </div>
+        </div>
+
       </div>
-      <h3 style="margin-top:18px">Crear usuario</h3>
-      <form id="formUsr" autocomplete="off">
-        <div class="grid">
-          <div><label class="req">Usuario</label><input id="nuUsuario" placeholder="maria.gomez"></div>
-          <div><label class="req">Contraseña</label><input id="nuClave" type="password" placeholder="mínimo 8"></div>
-          <div><label>Rol</label><select id="nuRol"><option value="administrativo">Administrativo (admisiones)</option><option value="medico">Médico (registro clínico)</option><option value="admin">Administrador (admisión + registro)</option></select></div>
-        </div>
-        <div class="actions"><button class="btn" type="submit">Crear usuario</button><span class="msg" id="usrMsg"></span></div>
-      </form>
     </div>
   </section>
 
