@@ -318,28 +318,28 @@ function renderReg(){
     const ct=document.createElement('td'); ct.className='cellwrap'; ct.textContent=n.texto||'—'; tr.appendChild(ct);
     const acc=document.createElement('td'); acc.className='right';
     const puede=puedeCrear(n.tipo);
+    let primero=true;
+    const sep=(el)=>{ if(!primero) el.style.marginLeft='6px'; primero=false; acc.appendChild(el); };
+    /* Editar: solo si el perfil puede crear/editar este tipo */
     if(puede){
       const be=document.createElement('button'); be.className='btn ghost mini'; be.textContent='Editar';
       be.addEventListener('click', ()=> abrirNota(n.id));
-      acc.appendChild(be);
-    } else if(!esHC(n.tipo)){
-      /* sin permiso de creación: solo lectura (para HC ya existe el botón Ver de abajo) */
-      const bv=document.createElement('button'); bv.className='btn ghost mini'; bv.textContent='Ver';
-      bv.addEventListener('click', ()=> abrirNota(n.id, true));
-      acc.appendChild(bv);
+      sep(be);
     }
+    /* Ver: SIEMPRE disponible (lectura). HC usa la vista previa; el resto, formulario de solo lectura */
+    const bv=document.createElement('button'); bv.className='btn ghost mini'; bv.textContent='Ver';
+    if(esHC(n.tipo)) bv.addEventListener('click', ()=> hcPreview(n.id));
+    else bv.addEventListener('click', ()=> abrirNota(n.id, true));
+    sep(bv);
     if(n.tipo==='Historia clínica'){
-      const bv=document.createElement('button'); bv.className='btn ghost mini'; bv.textContent='Ver'; bv.style.marginLeft='6px';
-      bv.addEventListener('click', ()=> hcPreview(n.id));
-      acc.appendChild(bv);
-      const bp=document.createElement('button'); bp.className='btn mini'; bp.textContent='PDF EPS'; bp.style.marginLeft='6px';
+      const bp=document.createElement('button'); bp.className='btn mini'; bp.textContent='PDF EPS';
       bp.addEventListener('click', ()=> historiaClinicaPDF(n.id));
-      acc.appendChild(bp);
+      sep(bp);
     }
     if(can('eliminar')){
-      const bd=document.createElement('button'); bd.className='btn del mini'; bd.textContent='Eliminar'; bd.style.marginLeft='6px';
+      const bd=document.createElement('button'); bd.className='btn del mini'; bd.textContent='Eliminar';
       bd.addEventListener('click', ()=>{ if(confirm('¿Eliminar esta nota?')){ store.set('notas', store.get('notas',[]).filter(x=>x.id!==n.id)); renderReg(); } });
-      acc.appendChild(bd);
+      sep(bd);
     }
     tr.appendChild(acc); tb.appendChild(tr);
   });
