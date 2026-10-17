@@ -60,6 +60,14 @@ El botón **Ver** abre una vista previa de todos los documentos antes de
 imprimir. Desde ahí puede descargar la historia clínica, cada documento
 aparte por separado, o **Descargar todo** de una vez.
 
+## Consulta y exportación (módulo Consulta clínica)
+Se busca por **número de documento** del paciente y se puede acotar por
+**Servicio** (tipo de nota), **Médico / profesional** y rango de fechas. El
+filtro de profesional se llena solo con los nombres que ya figuran en las notas
+(los profesionales que se vayan creando y registrando notas), así que puede
+**descargar en PDF la historia de un solo profesional**. El profesional elegido
+queda escrito en el encabezado del PDF.
+
 ## Respaldo y traslado entre equipos (Config → Respaldo)
 Como la información se guarda en cada dispositivo, usa la pestaña **Respaldo**:
 - **Exportar respaldo**: descarga un archivo `.json` con usuarios, admisiones,

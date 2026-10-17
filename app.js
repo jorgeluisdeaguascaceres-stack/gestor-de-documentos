@@ -119,7 +119,7 @@ function entrar(u){
   $('userName').textContent = u.usuario;
   $('userRole').textContent = (ROLES[u.rol]||u.rol).toUpperCase();
   aplicarPermisos();
-  renderAdm(); loadIps(); refreshPacList(); regMostrarTipos();
+  renderAdm(); loadIps(); refreshPacList(); regMostrarTipos(); refreshMedList();
   if(can('config')){ renderUsr(); renderCrear(); renderUsrList(); }
   goView('home');
 }
@@ -154,6 +154,7 @@ const VIEW_PERM = { admision:'admision', registro:'registro', consulta:'consulta
 function goView(name){
   if(VIEW_PERM[name] && !can(VIEW_PERM[name])){ alert('No tienes permiso para acceder a este módulo.'); return; }
   if(name==='registro') regMostrarTipos();
+  if(name==='consulta') refreshMedList();
   document.querySelectorAll('.view').forEach(v=> v.classList.toggle('sel', v.id===name));
   window.scrollTo({top:0,behavior:'smooth'});
 }
@@ -469,14 +470,28 @@ function fechaSoloDia(iso){ return (iso||'').slice(0,10); }
 function consultaFiltrar(){
   const doc=$('csDoc').value.trim();
   const serv=$('csServ').value;
+  const med=$('csMed')?$('csMed').value:'';
   const d1=$('csD1').value, d2=$('csD2').value;
   if(!doc){ flash($('csMsg'),'Indica el número de documento del paciente.','err'); return null; }
   let lista=store.get('notas',[]).filter(n=> (n.doc||'').trim()===doc);
   if(serv) lista=lista.filter(n=> n.tipo===serv);
+  if(med) lista=lista.filter(n=> (n.medico||'').trim()===med);
   if(d1) lista=lista.filter(n=> fechaSoloDia(n.fecha) >= d1);
   if(d2) lista=lista.filter(n=> fechaSoloDia(n.fecha) <= d2);
   lista.sort((a,b)=> (a.fecha||'').localeCompare(b.fecha||''));
   return lista;
+}
+/* llena el filtro de profesionales con los nombres que ya figuran en las notas */
+function refreshMedList(){
+  const sel=$('csMed'); if(!sel) return;
+  const prev=sel.value;
+  const set=new Set();
+  store.get('notas',[]).forEach(n=>{ const m=(n.medico||'').trim(); if(m) set.add(m); });
+  const nombres=Array.from(set).sort((a,b)=> a.localeCompare(b));
+  sel.innerHTML='';
+  const o0=document.createElement('option'); o0.value=''; o0.textContent='Todos los profesionales'; sel.appendChild(o0);
+  nombres.forEach(m=>{ const o=document.createElement('option'); o.value=m; o.textContent=m; sel.appendChild(o); });
+  if(prev && set.has(prev)) sel.value=prev;
 }
 function renderConsulta(lista){
   csResultados = lista;
@@ -501,8 +516,9 @@ function nombrePorDoc(doc){
   const n=store.get('notas',[]).find(x=>(x.doc||'').trim()===doc); return n?n.pac:'';
 }
 $('formCons').addEventListener('submit', (e)=>{ e.preventDefault(); const l=consultaFiltrar(); if(l){ flash($('csMsg'),''); renderConsulta(l); } });
-$('csLimpiar').addEventListener('click', ()=>{ $('csDoc').value=''; $('csServ').value=''; $('csD1').value=''; $('csD2').value=''; renderConsulta([]); $('csPac').textContent=''; flash($('csMsg'),''); });
+$('csLimpiar').addEventListener('click', ()=>{ $('csDoc').value=''; $('csServ').value=''; if($('csMed'))$('csMed').value=''; $('csD1').value=''; $('csD2').value=''; renderConsulta([]); $('csPac').textContent=''; flash($('csMsg'),''); });
 $('csServ').addEventListener('change', ()=>{ if($('csDoc').value.trim()){ const l=consultaFiltrar(); if(l) renderConsulta(l); } });
+if($('csMed')) $('csMed').addEventListener('change', ()=>{ if($('csDoc').value.trim()){ const l=consultaFiltrar(); if(l) renderConsulta(l); } });
 $('csPdf').addEventListener('click', consultaPDF);
 
 function consultaPDF(){
@@ -516,6 +532,7 @@ function consultaPDF(){
   const doc=$('csDoc').value.trim();
   const nombre=csResultados[0].pac || nombrePorDoc(doc) || '—';
   const d1=$('csD1').value, d2=$('csD2').value, serv=$('csServ').value;
+  const med=$('csMed')?$('csMed').value:'';
   function nl(h){ if(y+h > ph-48){ d.addPage(); y=mt; } }
   function linea(){ d.setDrawColor(0,200,248); d.setLineWidth(1); d.line(ml,y,pw-mr,y); y+=14; }
   // encabezado
@@ -530,7 +547,7 @@ function consultaPDF(){
   d.text('Paciente: '+nombre, ml, y); y+=14;
   d.text('Documento: '+doc, ml, y); y+=14;
   const rango = (d1||d2) ? ('Rango: '+(d1||'inicio')+' a '+(d2||'hoy')) : 'Rango: todas las fechas';
-  d.text(rango+'   ·   Servicio: '+(serv||'Todos'), ml, y); y+=14;
+  d.text(rango+'   ·   Servicio: '+(serv||'Todos')+'   ·   Profesional: '+(med||'Todos'), ml, y); y+=14;
   d.text('Generado: '+fmtFecha(new Date().toISOString())+'   ·   Total: '+csResultados.length+' registro(s)', ml, y); y+=10;
   linea();
   // registros
