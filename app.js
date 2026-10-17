@@ -20,6 +20,9 @@ function fmtFecha(iso){
 }
 /* crea celda segura (texto, nunca HTML) */
 function td(text, cls){ const c=document.createElement('td'); if(cls)c.className=cls; c.textContent=(text==null||text==='')?'—':String(text); return c; }
+/* ISO -> valor de <input datetime-local> (hora local) y viceversa */
+function isoToLocalInput(iso){ const d=iso?new Date(iso):new Date(); if(isNaN(d)) return ''; const t=new Date(d.getTime()-d.getTimezoneOffset()*60000); return t.toISOString().slice(0,16); }
+function localInputToIso(val){ if(!val) return new Date().toISOString(); const d=new Date(val); return isNaN(d)?new Date().toISOString():d.toISOString(); }
 function flash(el, texto, tipo){ el.textContent=texto; el.className='msg'+(tipo?(' '+tipo):''); if(texto){ setTimeout(()=>{ if(el.textContent===texto){el.textContent='';el.className='msg';} }, 4000); } }
 
 /* ============================================================
@@ -302,13 +305,13 @@ function abrirNota(id){
     const n=store.get('notas',[]).find(x=>x.id===editNotaId); if(!n){ return; }
     $('notaTit').textContent='Editar nota clínica';
     $('ntTipo').value=n.tipo; $('ntPac').value=n.pac||'—'; $('ntDoc').value=n.doc||'';
-    $('ntMed').value=n.medico||''; $('ntTexto').value=n.texto||'';
+    $('ntMed').value=n.medico||''; $('ntTexto').value=n.texto||''; $('ntFecha').value=isoToLocalInput(n.fecha);
     $('notaGuardar').textContent='Actualizar nota';
   } else {
     if(!regPac){ flash($('regMsg'),'Primero busque y seleccione un paciente.','err'); return; }
     $('notaTit').textContent='Nueva '+(regTipo||'nota').toLowerCase();
     $('ntTipo').value=regTipo; $('ntPac').value=regPac.nombre||'—'; $('ntDoc').value=regPac.doc;
-    $('ntMed').value=(CURRENT&&(CURRENT.nombre||CURRENT.usuario))||''; $('ntTexto').value='';
+    $('ntMed').value=(CURRENT&&(CURRENT.nombre||CURRENT.usuario))||''; $('ntTexto').value=''; $('ntFecha').value=isoToLocalInput();
     $('notaGuardar').textContent='Guardar nota';
   }
   $('ovNota').hidden=false; setTimeout(()=>$('ntMed').focus(),50);
@@ -325,12 +328,12 @@ $('formNota').addEventListener('submit', (e)=>{
   if(editNotaId){
     const l=store.get('notas',[]); const n=l.find(x=>x.id===editNotaId);
     if(!n){ cerrarNota(); renderReg(); return; }
-    n.medico=$('ntMed').value.trim(); n.texto=texto;
+    n.medico=$('ntMed').value.trim(); n.texto=texto; n.fecha=localInputToIso($('ntFecha').value);
     n.editadoPor=(CURRENT&&CURRENT.usuario)||''; n.editadoEl=new Date().toISOString();
     store.set('notas',l);
   } else {
     const prof=CURRENT||{};
-    const nota={ id:uid(), fecha:new Date().toISOString(), tipo:$('ntTipo').value, pac:$('ntPac').value.trim(), doc:$('ntDoc').value.trim(), medico:$('ntMed').value.trim(), especialidad:prof.especialidad||'', registro:prof.registro||'', firma:prof.firma||'', texto, creadoPor:(CURRENT&&CURRENT.usuario)||'' };
+    const nota={ id:uid(), fecha:localInputToIso($('ntFecha').value), creadoEl:new Date().toISOString(), tipo:$('ntTipo').value, pac:$('ntPac').value.trim(), doc:$('ntDoc').value.trim(), medico:$('ntMed').value.trim(), especialidad:prof.especialidad||'', registro:prof.registro||'', firma:prof.firma||'', texto, creadoPor:(CURRENT&&CURRENT.usuario)||'' };
     const l=store.get('notas',[]); l.push(nota); store.set('notas',l);
   }
   cerrarNota(); renderReg();

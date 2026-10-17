@@ -310,6 +310,7 @@
           <div><label>Paciente</label><input id="ntPac" readonly></div>
           <div><label>Documento</label><input id="ntDoc" readonly></div>
           <div><label>Médico / profesional</label><input id="ntMed" placeholder="Dr(a). ..."></div>
+          <div><label class="req">Fecha y hora de la nota</label><input id="ntFecha" type="datetime-local"><span class="hint">Se llena con la hora actual. Puede cambiarla para registrar una nota de días anteriores.</span></div>
           <div class="wide"><label class="req">Contenido de la nota</label><textarea id="ntTexto" rows="6" placeholder="S: ... O: ... A: ... P: ..."></textarea></div>
         </div>
         <div class="actions"><button class="btn" id="notaGuardar" type="submit">Guardar nota</button><button class="btn ghost" id="notaCancel" type="button">Cancelar</button><span class="msg" id="ntMsg"></span></div>
