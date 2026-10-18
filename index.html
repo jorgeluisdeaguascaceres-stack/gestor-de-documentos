@@ -102,7 +102,7 @@
           <div><label>Sexo</label><select id="admSexo"><option value="">—</option><option>Femenino</option><option>Masculino</option><option>Otro</option></select></div>
           <div><label>Teléfono</label><input id="admTel" inputmode="tel"></div>
           <div><label>Dirección</label><input id="admDir"></div>
-          <div><label>EPS / Aseguradora</label><input id="admEps" placeholder="Nueva EPS, Sanitas..."></div>
+          <div><label>EPS / Aseguradora</label><input id="admEps" list="epsListDL" placeholder="Nueva EPS, Sanitas..."><datalist id="epsListDL"></datalist></div>
           <div><label>Régimen</label><select id="admReg"><option>Contributivo</option><option>Subsidiado</option><option>Particular</option><option>Especial</option></select></div>
           <div><label>Tipo de ingreso</label><select id="admIng"><option>Urgencias</option><option>Consulta externa</option><option>Hospitalización</option><option>Procedimiento</option></select></div>
           <div><label>Fecha y hora de ingreso</label><input id="admFecha" type="datetime-local"></div>
@@ -188,7 +188,7 @@
     <div class="panel">
       <h3>Buscar por documento</h3>
       <form id="formCons" autocomplete="off">
-        <div class="grid">
+        <div class="grid csfiltros">
           <div><label class="req">Número de documento</label><input id="csDoc" inputmode="numeric" placeholder="1234567890"></div>
           <div><label>Servicio</label>
             <select id="csServ">
@@ -204,8 +204,8 @@
             </select></div>
           <div><label>Médico / profesional</label>
             <select id="csMed"><option value="">Todos los profesionales</option></select></div>
-          <div><label>Fecha inicio</label><input id="csD1" type="date"></div>
-          <div><label>Fecha fin</label><input id="csD2" type="date"></div>
+          <div><label>Fecha inicio</label><input id="csD1" class="datepick" type="text" readonly autocomplete="off" placeholder="año-mes-día"></div>
+          <div><label>Fecha fin</label><input id="csD2" class="datepick" type="text" readonly autocomplete="off" placeholder="año-mes-día"></div>
         </div>
         <div class="actions">
           <button class="btn" type="submit">Consultar</button>
@@ -237,6 +237,8 @@
         <button class="cfgtab active" data-cfg="usuarios" type="button">Registro de usuario</button>
         <button class="cfgtab" data-cfg="matriz" type="button">Matriz de permisos</button>
         <button class="cfgtab" data-cfg="ips" type="button">Registro de la IPS</button>
+        <button class="cfgtab" data-cfg="eps" type="button">Gestión de EPS</button>
+        <button class="cfgtab" data-cfg="seguridad" type="button">Seguridad</button>
         <button class="cfgtab" data-cfg="respaldo" type="button">Respaldo</button>
       </nav>
       <div class="cfgbody">
@@ -318,6 +320,54 @@
                 </div>
               </div>
               <div class="actions"><button class="btn" type="submit">Guardar parámetros</button><span class="msg" id="ipsMsg"></span></div>
+            </form>
+          </div>
+        </div>
+
+        <!-- Apartado: Gestión de EPS (entidades a las que se presta el servicio) -->
+        <div class="cfgpane" id="cfg-eps" hidden>
+          <div class="panel">
+            <h3>Gestión de EPS / entidades pagadoras</h3>
+            <p class="hint">Registre las <b>EPS y entidades</b> a las que la IPS presta el servicio. Estas aparecerán como sugerencia al diligenciar la <b>Admisión</b> del paciente.</p>
+            <form id="formEps" autocomplete="off">
+              <div class="grid">
+                <div><label>Código EPS</label><input id="epsCodigo" placeholder="EPS017"></div>
+                <div class="wide"><label class="req">Nombre de la EPS</label><input id="epsNombre" placeholder="COOSALUD EPS"></div>
+                <div class="wide"><label>URL de verificación de derechos (opcional)</label><input id="epsUrl" placeholder="https://portal-eps.com/verificar-derechos"></div>
+                <div><label>Régimen</label><select id="epsRegimen"><option>Contributivo</option><option>Subsidiado</option><option>Especial</option><option>Particular</option></select></div>
+                <div><label>NIT</label><input id="epsNit" placeholder="900.123.456-7"></div>
+                <div><label>Teléfono</label><input id="epsTel" placeholder="+57 300 000 0000"></div>
+                <div><label>Email de radicación</label><input id="epsEmail" placeholder="radicacion@eps.com"></div>
+                <div class="wide"><label>Observaciones</label><textarea id="epsObs" rows="2" placeholder="Convenio, condiciones especiales..."></textarea></div>
+              </div>
+              <div class="actions">
+                <button class="btn" type="submit" id="epsGuardar">Guardar EPS</button>
+                <button class="btn ghost" id="epsLimpiar" type="button">Limpiar</button>
+                <span class="msg" id="epsMsg"></span>
+              </div>
+            </form>
+          </div>
+          <div class="panel">
+            <div class="ptop"><h3>EPS registradas</h3><span class="count" id="epsCount">0 EPS</span></div>
+            <div class="tablebox">
+              <table><thead><tr><th>Código</th><th>Nombre EPS</th><th>Régimen</th><th>NIT</th><th>Teléfono</th><th>Email</th><th>Activo</th><th></th></tr></thead>
+              <tbody id="epsTb"></tbody></table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Apartado: Seguridad (cambio de contraseña del usuario activo) -->
+        <div class="cfgpane" id="cfg-seguridad" hidden>
+          <div class="panel">
+            <h3>Cambiar mi contraseña</h3>
+            <p class="hint">Cambie la contraseña de <b id="segUser">su usuario</b>. Debe tener mínimo 8 caracteres e incluir letras y números.</p>
+            <form id="formPwd" autocomplete="off">
+              <div class="grid">
+                <div><label class="req">Contraseña actual</label><input id="pwActual" type="password" placeholder="••••••••"></div>
+                <div><label class="req">Nueva contraseña</label><input id="pwNueva" type="password" placeholder="mínimo 8"></div>
+                <div><label class="req">Repetir nueva contraseña</label><input id="pwNueva2" type="password" placeholder="repetir"></div>
+              </div>
+              <div class="actions"><button class="btn" type="submit">Actualizar contraseña</button><span class="msg" id="pwMsg"></span></div>
             </form>
           </div>
         </div>

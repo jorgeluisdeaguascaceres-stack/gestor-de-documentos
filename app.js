@@ -120,7 +120,8 @@ function entrar(u){
   $('userRole').textContent = (ROLES[u.rol]||u.rol).toUpperCase();
   aplicarPermisos();
   renderAdm(); loadIps(); refreshPacList(); regMostrarTipos(); refreshMedList();
-  if(can('config')){ renderUsr(); renderCrear(); renderUsrList(); }
+  epsRefrescarDatalist();
+  if(can('config')){ renderUsr(); renderCrear(); renderUsrList(); renderEps(); segInfo(); }
   goView('home');
 }
 function salir(){ store.set('sesion', null); CURRENT=null; mostrarGate(); }
@@ -519,6 +520,7 @@ $('formCons').addEventListener('submit', (e)=>{ e.preventDefault(); const l=cons
 $('csLimpiar').addEventListener('click', ()=>{ $('csDoc').value=''; $('csServ').value=''; if($('csMed'))$('csMed').value=''; $('csD1').value=''; $('csD2').value=''; renderConsulta([]); $('csPac').textContent=''; flash($('csMsg'),''); });
 $('csServ').addEventListener('change', ()=>{ if($('csDoc').value.trim()){ const l=consultaFiltrar(); if(l) renderConsulta(l); } });
 if($('csMed')) $('csMed').addEventListener('change', ()=>{ if($('csDoc').value.trim()){ const l=consultaFiltrar(); if(l) renderConsulta(l); } });
+['csD1','csD2'].forEach(id=>{ if($(id)) $(id).addEventListener('change', ()=>{ if($('csDoc').value.trim()){ const l=consultaFiltrar(); if(l) renderConsulta(l); } }); });
 $('csPdf').addEventListener('click', consultaPDF);
 
 function consultaPDF(){
@@ -948,6 +950,8 @@ function cfgTab(name){
   document.querySelectorAll('.cfgtab').forEach(b=>b.classList.toggle('active', b.getAttribute('data-cfg')===name));
   document.querySelectorAll('.cfgpane').forEach(p=>{ p.hidden = (p.id!=='cfg-'+name); });
   if(name==='respaldo' && typeof bkRefrescar==='function') bkRefrescar();
+  if(name==='eps' && typeof renderEps==='function') renderEps();
+  if(name==='seguridad' && typeof segInfo==='function') segInfo();
 }
 (function(){
   const nav=$('cfgNav');
@@ -958,7 +962,7 @@ function cfgTab(name){
    RESPALDO · Exportar / Importar (traslado manual entre equipos)
    No es sincronización ni servidor: genera/lee un archivo JSON.
    ============================================================ */
-const BK_CLAVES = ['usuarios','admisiones','notas','ips'];
+const BK_CLAVES = ['usuarios','admisiones','notas','ips','eps'];
 
 function bkInfoTexto(){
   const u=store.get('usuarios',[]).length;
@@ -1047,6 +1051,192 @@ $('formUsr').addEventListener('submit', async (e)=>{
   nuFirmaData=null; $('nuFirmaFile').value=''; $('nuFirmaPrev').hidden=true; $('nuFirmaPrev').removeAttribute('src');
   flash($('usrMsg'),'Usuario creado con permisos de '+(ROLES[rol]||rol)+'.','ok'); renderUsr(); renderCrear(); renderUsrList();
 });
+
+/* ============================================================
+   SEGURIDAD · Cambio de contraseña del usuario activo
+   ============================================================ */
+function segInfo(){
+  const el=$('segUser'); if(el) el.textContent=(CURRENT&&(CURRENT.usuario||'su usuario'))||'su usuario';
+}
+if($('formPwd')){
+  $('formPwd').addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const u=sesionUser();
+    if(!u){ flash($('pwMsg'),'Debe iniciar sesión para cambiar la contraseña.','err'); return; }
+    const act=$('pwActual').value, n1=$('pwNueva').value, n2=$('pwNueva2').value;
+    const chk=await hashPwd(act, u.salt);
+    if(chk.hash!==u.hash){ flash($('pwMsg'),'La contraseña actual no es correcta.','err'); return; }
+    if(n1.length<8 || !/[a-z]/i.test(n1) || !/[0-9]/.test(n1)){ flash($('pwMsg'),'La nueva contraseña debe tener 8+ caracteres con letras y números.','err'); return; }
+    if(n1!==n2){ flash($('pwMsg'),'Las nuevas contraseñas no coinciden.','err'); return; }
+    if(n1===act){ flash($('pwMsg'),'La nueva contraseña debe ser distinta a la actual.','err'); return; }
+    const h=await hashPwd(n1);
+    const l=usuarios(); const t=l.find(x=>x.id===u.id);
+    if(!t){ flash($('pwMsg'),'No se encontró el usuario.','err'); return; }
+    t.salt=h.salt; t.hash=h.hash; setUsuarios(l);
+    if(CURRENT && CURRENT.id===t.id){ CURRENT.salt=t.salt; CURRENT.hash=t.hash; }
+    $('pwActual').value=''; $('pwNueva').value=''; $('pwNueva2').value='';
+    flash($('pwMsg'),'Contraseña actualizada correctamente.','ok');
+  });
+}
+
+/* ============================================================
+   GESTIÓN DE EPS · entidades a las que se presta el servicio
+   ============================================================ */
+let epsEditId = null;
+function epsLista(){ return store.get('eps', []); }
+function setEps(l){ store.set('eps', l); }
+function epsLimpiarForm(){
+  epsEditId=null;
+  ['epsCodigo','epsNombre','epsUrl','epsNit','epsTel','epsEmail','epsObs'].forEach(id=>{ if($(id)) $(id).value=''; });
+  if($('epsRegimen')) $('epsRegimen').selectedIndex=0;
+  if($('epsGuardar')) $('epsGuardar').textContent='Guardar EPS';
+}
+function epsRefrescarDatalist(){
+  const dl=$('epsListDL'); if(!dl) return;
+  dl.textContent='';
+  epsLista().filter(e=>e.activo!==false).forEach(e=>{
+    const o=document.createElement('option'); o.value=e.nombre||''; dl.appendChild(o);
+  });
+}
+function renderEps(){
+  const tb=$('epsTb'); if(!tb) return;
+  const l=epsLista(); tb.textContent='';
+  const cnt=$('epsCount'); if(cnt) cnt.textContent=l.length+' EPS';
+  if(!l.length){
+    const tr=document.createElement('tr'); const td=document.createElement('td');
+    td.colSpan=8; td.className='hint'; td.style.textAlign='center'; td.textContent='Aún no hay EPS registradas.';
+    tr.appendChild(td); tb.appendChild(tr); return;
+  }
+  l.forEach(e=>{
+    const tr=document.createElement('tr');
+    [e.codigo||'—', e.nombre||'—', e.regimen||'—', e.nit||'—', e.tel||'—', e.email||'—'].forEach(v=>{
+      const td=document.createElement('td'); td.textContent=v; tr.appendChild(td);
+    });
+    /* activo */
+    const ca=document.createElement('td');
+    const lab=document.createElement('label'); lab.className='sw';
+    const inp=document.createElement('input'); inp.type='checkbox'; inp.checked=(e.activo!==false);
+    inp.addEventListener('change', ()=>{ const ll=epsLista(); const t=ll.find(x=>x.id===e.id); if(t){ t.activo=inp.checked; setEps(ll); epsRefrescarDatalist(); } });
+    const tk=document.createElement('span'); tk.className='track';
+    lab.appendChild(inp); lab.appendChild(tk); ca.appendChild(lab); tr.appendChild(ca);
+    /* acciones */
+    const ac=document.createElement('td');
+    const bt=document.createElement('button'); bt.className='btn ghost mini'; bt.type='button'; bt.textContent='Editar';
+    bt.addEventListener('click', ()=>{
+      epsEditId=e.id;
+      $('epsCodigo').value=e.codigo||''; $('epsNombre').value=e.nombre||''; $('epsUrl').value=e.url||'';
+      $('epsRegimen').value=e.regimen||'Contributivo'; $('epsNit').value=e.nit||''; $('epsTel').value=e.tel||'';
+      $('epsEmail').value=e.email||''; $('epsObs').value=e.obs||'';
+      if($('epsGuardar')) $('epsGuardar').textContent='Actualizar EPS';
+      $('epsCodigo').focus();
+    });
+    const bd=document.createElement('button'); bd.className='btn del mini'; bd.type='button'; bd.textContent='Eliminar';
+    bd.addEventListener('click', ()=>{ if(confirm('¿Eliminar la EPS '+(e.nombre||'')+'?')){ setEps(epsLista().filter(x=>x.id!==e.id)); if(epsEditId===e.id) epsLimpiarForm(); renderEps(); epsRefrescarDatalist(); } });
+    ac.appendChild(bt); ac.appendChild(document.createTextNode(' ')); ac.appendChild(bd); tr.appendChild(ac);
+    tb.appendChild(tr);
+  });
+}
+if($('formEps')){
+  $('formEps').addEventListener('submit', (e)=>{
+    e.preventDefault();
+    const nombre=$('epsNombre').value.trim();
+    if(!nombre){ flash($('epsMsg'),'El nombre de la EPS es obligatorio.','err'); return; }
+    const datos={ codigo:$('epsCodigo').value.trim(), nombre:nombre, url:$('epsUrl').value.trim(),
+      regimen:$('epsRegimen').value, nit:$('epsNit').value.trim(), tel:$('epsTel').value.trim(),
+      email:$('epsEmail').value.trim(), obs:$('epsObs').value.trim() };
+    const l=epsLista();
+    if(epsEditId){
+      const t=l.find(x=>x.id===epsEditId);
+      if(t){ Object.assign(t, datos); setEps(l); flash($('epsMsg'),'EPS actualizada.','ok'); }
+    } else {
+      datos.id=uid(); datos.activo=true; l.push(datos); setEps(l);
+      flash($('epsMsg'),'EPS registrada.','ok');
+    }
+    epsLimpiarForm(); renderEps(); epsRefrescarDatalist();
+  });
+}
+if($('epsLimpiar')) $('epsLimpiar').addEventListener('click', ()=>{ epsLimpiarForm(); flash($('epsMsg'),'',''); });
+
+/* ============================================================
+   CALENDARIO EMERGENTE · con botón "Aceptar" para salir
+   Se engancha a cualquier input .datepick (texto, readonly).
+   El valor del input queda como AAAA-MM-DD (compatible con los
+   filtros existentes). Se dispara 'change' al aceptar o borrar.
+   ============================================================ */
+(function(){
+  const MESES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const DOW=['Lu','Ma','Mi','Ju','Vi','Sá','Do'];
+  let pop=null, target=null, view=null, sel=null;
+
+  function pad(n){ return (n<10?'0':'')+n; }
+  function iso(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+  function parseISO(s){ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(s||''); if(!m) return null; const d=new Date(+m[1],+m[2]-1,+m[3]); return isNaN(d)?null:d; }
+
+  function build(){
+    pop=document.createElement('div'); pop.className='cal'; pop.hidden=true;
+    const head=document.createElement('div'); head.className='cal-head';
+    const prev=document.createElement('button'); prev.type='button'; prev.className='cal-nav'; prev.textContent='‹';
+    const title=document.createElement('span'); title.className='cal-title';
+    const next=document.createElement('button'); next.type='button'; next.className='cal-nav'; next.textContent='›';
+    head.appendChild(prev); head.appendChild(title); head.appendChild(next);
+    const dow=document.createElement('div'); dow.className='cal-dow';
+    DOW.forEach(x=>{ const s=document.createElement('span'); s.textContent=x; dow.appendChild(s); });
+    const grid=document.createElement('div'); grid.className='cal-grid';
+    const foot=document.createElement('div'); foot.className='cal-foot';
+    const borrar=document.createElement('button'); borrar.type='button'; borrar.className='btn ghost'; borrar.textContent='Borrar';
+    const aceptar=document.createElement('button'); aceptar.type='button'; aceptar.className='btn'; aceptar.textContent='Aceptar';
+    foot.appendChild(borrar); foot.appendChild(aceptar);
+    pop.appendChild(head); pop.appendChild(dow); pop.appendChild(grid); pop.appendChild(foot);
+    document.body.appendChild(pop);
+
+    prev.addEventListener('click', ()=>{ view.setMonth(view.getMonth()-1); paint(title, grid); });
+    next.addEventListener('click', ()=>{ view.setMonth(view.getMonth()+1); paint(title, grid); });
+    borrar.addEventListener('click', ()=>{ if(target){ target.value=''; target.dispatchEvent(new Event('change',{bubbles:true})); } cerrar(); });
+    aceptar.addEventListener('click', ()=>{ if(target){ target.value=sel?iso(sel):''; target.dispatchEvent(new Event('change',{bubbles:true})); } cerrar(); });
+    pop._title=title; pop._grid=grid;
+  }
+
+  function paint(title, grid){
+    const y=view.getFullYear(), m=view.getMonth();
+    title.textContent=MESES[m]+' '+y;
+    grid.textContent='';
+    const first=new Date(y,m,1);
+    let start=first.getDay(); start=(start===0)?6:start-1; /* lunes primero */
+    const diasMes=new Date(y,m+1,0).getDate();
+    const hoy=iso(new Date());
+    for(let i=0;i<start;i++){ const b=document.createElement('button'); b.type='button'; b.className='cal-day muted'; b.textContent=''; b.disabled=true; grid.appendChild(b); }
+    for(let d=1;d<=diasMes;d++){
+      const cur=new Date(y,m,d); const ciso=iso(cur);
+      const b=document.createElement('button'); b.type='button'; b.className='cal-day'; b.textContent=String(d);
+      if(ciso===hoy) b.classList.add('today');
+      if(sel && iso(sel)===ciso) b.classList.add('sel');
+      b.addEventListener('click', ()=>{ sel=cur; grid.querySelectorAll('.cal-day.sel').forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); });
+      grid.appendChild(b);
+    }
+  }
+
+  function abrir(inp){
+    if(!pop) build();
+    target=inp;
+    sel=parseISO(inp.value);
+    view=sel?new Date(sel.getFullYear(), sel.getMonth(), 1):new Date();
+    paint(pop._title, pop._grid);
+    pop.hidden=false;
+    const r=inp.getBoundingClientRect();
+    let top=r.bottom+window.scrollY+6, left=r.left+window.scrollX;
+    const pw=280; if(left+pw>window.scrollX+document.documentElement.clientWidth-8){ left=window.scrollX+document.documentElement.clientWidth-pw-8; }
+    if(left<window.scrollX+8) left=window.scrollX+8;
+    pop.style.top=top+'px'; pop.style.left=left+'px';
+  }
+  function cerrar(){ if(pop){ pop.hidden=true; } target=null; }
+
+  document.addEventListener('click', (e)=>{
+    const dp=e.target.closest && e.target.closest('.datepick');
+    if(dp){ e.preventDefault(); abrir(dp); return; }
+    if(pop && !pop.hidden && !(e.target.closest && e.target.closest('.cal'))){ cerrar(); }
+  });
+  window.addEventListener('resize', cerrar);
+})();
 
 /* ---------- arranque ---------- */
 function init(){
