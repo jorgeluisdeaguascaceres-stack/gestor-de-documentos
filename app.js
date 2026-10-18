@@ -318,6 +318,7 @@ function regAbrirTipo(tipo){
   $('regTipoTit').textContent=tipo;
   $('regBuscar').value=''; $('regPacNom').value=''; $('regPacDoc').value='';
   $('regNueva').disabled=true; flash($('regMsg'),'');
+  if(typeof actualizarBotonQuitarPac==='function') actualizarBotonQuitarPac();
   if(!puedeCrear(tipo)){ flash($('regMsg'),'Su perfil puede VER estas notas pero no crearlas ni editarlas (solo lectura).','warn'); }
   $('regTipos').hidden=true; $('regPanel').hidden=false;
   refreshPacList(); renderReg();
@@ -342,10 +343,32 @@ function aplicarBusqueda(){
   const p=resolverPaciente($('regBuscar').value);
   if(p){ regPac=p; $('regPacNom').value=p.nombre||'—'; $('regPacDoc').value=p.doc; $('regNueva').disabled=!puedeCrear(regTipo); flash($('regMsg'), puedeCrear(regTipo)?'':'Su perfil puede VER estas notas pero no crearlas ni editarlas (solo lectura).', puedeCrear(regTipo)?'':'warn'); }
   else { regPac=null; $('regPacNom').value=''; $('regPacDoc').value=''; $('regNueva').disabled=true; }
+  actualizarBotonQuitarPac();
   renderReg();
+}
+/* el botón "Quitar paciente" solo se ve con un paciente seleccionado y permiso de eliminar */
+function actualizarBotonQuitarPac(){
+  const b=$('regQuitarPac'); if(!b) return;
+  b.hidden = !(regPac && can('eliminar'));
+}
+function quitarPacienteActual(){
+  if(!regPac){ return; }
+  if(!can('eliminar')){ flash($('regMsg'),'No tienes permiso para eliminar.','err'); return; }
+  const doc=regPac.doc;
+  const nAdm=store.get('admisiones',[]).filter(x=>(x.doc||'').trim()===doc).length;
+  const nNot=store.get('notas',[]).filter(x=>(x.doc||'').trim()===doc).length;
+  const ok=confirm('¿Quitar al paciente con documento '+doc+'?\n\nSe eliminarán su admisión y TODAS sus notas de todos los tipos.\n\nAdmisiones: '+nAdm+'\nNotas: '+nNot+'\n\nEsta acción no se puede deshacer.');
+  if(!ok) return;
+  store.set('admisiones', store.get('admisiones',[]).filter(x=>(x.doc||'').trim()!==doc));
+  store.set('notas', store.get('notas',[]).filter(x=>(x.doc||'').trim()!==doc));
+  regPac=null; $('regBuscar').value=''; $('regPacNom').value=''; $('regPacDoc').value='';
+  $('regNueva').disabled=true; actualizarBotonQuitarPac();
+  refreshPacList(); renderReg(); renderAdm();
+  flash($('regMsg'),'Paciente eliminado ('+(nAdm+nNot)+' registro(s)).','ok');
 }
 $('regBuscar').addEventListener('change', aplicarBusqueda);
 $('regBuscar').addEventListener('input', ()=>{ /* autocompleta al elegir del listado */ if(resolverPaciente($('regBuscar').value)) aplicarBusqueda(); });
+if($('regQuitarPac')) $('regQuitarPac').addEventListener('click', quitarPacienteActual);
 
 function renderReg(){
   const tb=$('regTb'); if(!tb) return; tb.innerHTML='';
