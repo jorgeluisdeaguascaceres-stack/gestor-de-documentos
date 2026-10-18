@@ -137,11 +137,86 @@
   function iniciarSesionApp(email, nombre){
     syncPull(function(){
       var perfil = resolverPerfil(email, nombre);
+      // si el maestro desactivó este usuario, no se permite el ingreso
+      if(perfil && perfil.activo === false){
+        try{ sb.auth.signOut(); }catch(e){}
+        store.setSilent('sesion', null); window.CURRENT = null;
+        mostrarGateNube('login');
+        flash($('clMsg'), 'Este usuario está desactivado. Contacte al administrador.', 'err');
+        return;
+      }
       // marca la sesión local (solo este dispositivo)
       store.setSilent('sesion', { usuario: perfil.usuario, ts: Date.now() });
       suscribirRealtime();
       if(typeof window.entrar === 'function') window.entrar(perfil);
     });
+  }
+
+  /* ---------- el MAESTRO crea el acceso del profesional en la nube ----------
+     Crea la credencial (correo + contraseña temporal) con un cliente aparte
+     para NO cerrar la sesión del maestro, y guarda su perfil en los datos
+     compartidos. El profesional podrá entrar desde cualquier lugar. */
+  function crearUsuarioNube(){
+    var msg = $('usrMsg');
+    var email = ($('nuEmail') ? $('nuEmail').value : '').trim().toLowerCase();
+    var pass  = $('nuClave') ? $('nuClave').value : '';
+    var rol   = $('nuRol') ? $('nuRol').value : 'medico';
+    var nombre= ($('nuNombre') ? $('nuNombre').value : '').trim();
+    var doc   = ($('nuDoc') ? $('nuDoc').value : '').trim();
+    var registro = ($('nuRegistro') ? $('nuRegistro').value : '').trim();
+    var espec = $('nuEspec') ? $('nuEspec').value : 'General';
+    var prev  = $('nuFirmaPrev');
+    var firma = (prev && !prev.hidden && prev.getAttribute('src')) ? prev.getAttribute('src') : '';
+
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ flash(msg,'Escriba un correo válido para el profesional.','err'); return; }
+    if((pass||'').length < 6){ flash(msg,'La contraseña temporal debe tener al menos 6 caracteres.','err'); return; }
+    var lista = window.usuarios();
+    if(lista.some(function(u){ return (u.email||u.usuario||'').toLowerCase() === email; })){ flash(msg,'Ese correo ya está registrado.','err'); return; }
+
+    flash(msg,'Creando acceso en la nube…','');
+    var tmp;
+    try{
+      tmp = window.supabase.createClient(cfg.url, cfg.anon, {
+        auth:{ persistSession:false, autoRefreshToken:false, storageKey:'nxm_tmp_'+Date.now() }
+      });
+    }catch(e){ flash(msg,'No se pudo preparar la conexión con la nube.','err'); return; }
+
+    tmp.auth.signUp({ email: email, password: pass }).then(function(res){
+      var m = res.error ? String(res.error.message||'').toLowerCase() : '';
+      var yaExiste = res.error && (m.indexOf('already')>=0 || m.indexOf('registered')>=0);
+      if(res.error && !yaExiste){ flash(msg, traducirError(res.error.message), 'err'); return; }
+      guardarPerfil();
+    }, function(){ flash(msg,'No se pudo conectar con la nube. Revise su internet.','err'); });
+
+    function guardarPerfil(){
+      var perfil = {
+        id: uidLocal(), usuario: email, email: email,
+        nombre: nombre || email.split('@')[0], doc: doc, registro: registro,
+        especialidad: espec || 'General', firma: firma,
+        rol: rol, activo: true, ultimo: null, perms: window.defaultPerms(rol)
+      };
+      var l = window.usuarios(); l.push(perfil); window.setUsuarios(l); // se empuja a la nube
+      // limpia el formulario
+      if($('nuEmail')) $('nuEmail').value='';
+      if($('nuClave')) $('nuClave').value='';
+      if($('nuNombre')) $('nuNombre').value='';
+      if($('nuDoc')) $('nuDoc').value='';
+      if($('nuRegistro')) $('nuRegistro').value='';
+      if($('nuEspec')) $('nuEspec').selectedIndex=0;
+      if(prev){ prev.hidden=true; prev.removeAttribute('src'); }
+      if($('nuFirmaFile')) $('nuFirmaFile').value='';
+      // mensaje persistente (no se borra solo) con las credenciales a entregar
+      if(msg){ msg.className='msg ok';
+        msg.textContent='✓ Acceso creado para '+email+'. Entréguele ese correo y la contraseña temporal: podrá entrar desde cualquier lugar.'; }
+      try{ window.renderUsr&&window.renderUsr(); window.renderCrear&&window.renderCrear(); window.renderUsrList&&window.renderUsrList(); }catch(e){}
+    }
+  }
+
+  // muestra los campos de correo (modo nube) u oculta y usa usuario (modo local)
+  function modoNubeFormUsuario(on){
+    show('nuUsuarioWrap', !on);
+    show('nuEmailWrap', on);
+    show('nuCloudHint', on);
   }
 
   /* ---------- acciones de autenticación ---------- */
@@ -219,6 +294,15 @@
       var i=$('clPass'); i.type = i.type==='password'?'text':'password';
     });
 
+    // en modo nube, el maestro crea usuarios por CORREO (intercepta el envío
+    // del formulario antes del manejador local)
+    var formUsr = $('formUsr');
+    if(formUsr){
+      formUsr.addEventListener('submit', function(e){
+        if(sb){ e.preventDefault(); e.stopImmediatePropagation(); crearUsuarioNube(); }
+      }, true);
+    }
+
     // probar conexión
     if($('btnNubeProbar')) $('btnNubeProbar').addEventListener('click', function(){
       var url=$('ncUrl').value.trim(), anon=$('ncAnon').value.trim();
@@ -244,6 +328,7 @@
       cfg = { url:url, anon:anon };
       guardarCfg(cfg);
       sb = crearCliente(cfg);
+      modoNubeFormUsuario(true);
       msg($('ncMsg'),'✓ Guardado. Ahora inicie sesión.','ok');
       mostrarGateNube('login');
     });
@@ -289,6 +374,7 @@
     if(!cfg){ return; } // sin configuración: la app sigue en modo local
     sb = crearCliente(cfg);
     if(!sb){ mostrarGateNube('config'); return; }
+    modoNubeFormUsuario(true); // el maestro creará usuarios por correo
     // ¿hay sesión de nube activa? (persistida por supabase)
     sb.auth.getSession().then(function(res){
       var ses = res && res.data && res.data.session;

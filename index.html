@@ -250,8 +250,10 @@
             <h3>Crear usuario</h3>
             <p class="hint">Registre a cada persona del equipo con su <b>perfil profesional</b>. Todos pueden hacer historia clínica; lo que define el documento es su <b>especialidad</b> y su <b>firma</b>. Luego defina qué puede hacer en la <b>Matriz de permisos</b>.</p>
             <form id="formUsr" autocomplete="off">
+              <p class="hint" id="nuCloudHint" hidden style="background:rgba(0,200,248,.08);border:1px solid rgba(0,200,248,.25);border-radius:10px;padding:8px 10px"><b>Modo nube:</b> cree aquí al profesional con su <b>correo</b> y una <b>contraseña temporal</b>. Entréguele esos dos datos: podrá abrir la app y entrar <b>desde cualquier lugar</b> (otra ciudad, otro celular). Al ingresar, podrá cambiar su contraseña.</p>
               <div class="grid">
-                <div><label class="req">Usuario</label><input id="nuUsuario" placeholder="maria.gomez"></div>
+                <div id="nuUsuarioWrap"><label class="req">Usuario</label><input id="nuUsuario" placeholder="maria.gomez"></div>
+                <div id="nuEmailWrap" hidden><label class="req">Correo electrónico</label><input id="nuEmail" type="email" placeholder="medico@correo.com"></div>
                 <div><label>Número de documento</label><input id="nuDoc" inputmode="numeric" placeholder="C.C. 1010101010"></div>
                 <div class="wide"><label>Nombre completo del profesional</label><input id="nuNombre" placeholder="Dr(a). Nombre Apellido"></div>
                 <div><label class="req">Contraseña</label><input id="nuClave" type="password" placeholder="mínimo 8"></div>

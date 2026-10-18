@@ -65,17 +65,43 @@ personas con sesión iniciada** pueden ver o cambiar los datos.
 3. Pegue el **Project URL** y la clave **anon public**.
 4. Toque **Probar** (debe decir “✓ Conexión correcta”) y luego
    **Guardar y conectar**.
-5. Toque **“¿No tiene cuenta? Crear una”** y registre al primer usuario:
+5. Toque **“¿No tiene cuenta? Crear una”** y registre **solo al maestro**:
    - El **primer** correo que se registre será el **usuario maestro**
-     (el único con acceso a *Configuraciones*).
-   - Los demás profesionales que se registren entrarán como **médico**
-     por defecto; luego el maestro puede ajustar sus permisos y su
-     perfil (especialidad, registro, firma) desde *Configuraciones*.
+     (el único con acceso a *Configuraciones*). Normalmente es usted,
+     el administrador de la clínica.
 
-Listo. A partir de ahí, desde **cualquier otro móvil**: abren la app,
-“Conectar a la nube”, pegan los mismos 2 datos **una vez**, y luego
-inician sesión con su correo y contraseña. Verán los mismos datos y los
-cambios aparecen **en vivo**.
+Listo: el maestro ya puede entrar desde cualquier dispositivo.
+
+---
+
+## Paso 5 · El maestro crea el acceso de cada profesional
+
+Una vez el maestro tiene sesión, **él mismo crea el acceso de cada médico**
+desde su oficina (no hace falta que el médico esté presente):
+
+1. El maestro entra y abre **Configuraciones → Registro de usuario**.
+2. Escribe el **correo** del profesional y una **contraseña temporal**
+   (mínimo 6 caracteres), su nombre, rol (médico/enfermería…),
+   especialidad, registro y firma si lo desea.
+3. Toca **Guardar**. La app crea la credencial en la nube **sin cerrar la
+   sesión del maestro** y guarda el perfil (se sincroniza a todos).
+4. El maestro le **entrega al profesional ese correo y la contraseña
+   temporal** (por WhatsApp, en persona, etc.).
+
+El profesional, desde **cualquier lugar** (otro móvil/ciudad): abre la app,
+“Conectar a la nube”, pega los mismos 2 datos **una vez**, y en la pantalla
+de inicio **inicia sesión** con el correo y la contraseña que le dieron
+(**no** usa “Crear cuenta”). Verá los mismos datos y los cambios aparecen
+**en vivo**.
+
+> **Importante:** para que el médico pueda entrar de inmediato con la
+> contraseña temporal, en Supabase debe estar **desactivado** “Confirm
+> email” (ver *Preguntas frecuentes*). Si está activado, el médico tendría
+> que confirmar el correo antes del primer ingreso.
+>
+> Si un profesional ya **no** debe entrar, el maestro lo **desactiva**
+> en *Configuraciones → Registro de usuario*: aunque conozca su
+> contraseña, el ingreso quedará bloqueado.
 
 ---
 
