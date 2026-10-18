@@ -513,6 +513,24 @@
         <button class="btn" id="btnEntrar" type="submit" style="width:100%">Ingresar</button>
       </form>
       <div class="msg" id="msgLogin"></div>
+      <p class="glink"><button class="linkbtn" id="btnIrCambio" type="button">¿Cambiar contraseña?</button></p>
+    </div>
+
+    <!-- cambiar contraseña desde el inicio (cualquier usuario) -->
+    <div id="gCambio" hidden>
+      <h2>Cambiar contraseña</h2>
+      <p class="gsub">Escriba su usuario y su contraseña actual, luego la nueva.</p>
+      <form id="formCambio" autocomplete="off">
+        <div class="gfield"><label>Usuario</label><input id="cbUsuario" placeholder="su.usuario"></div>
+        <div class="gfield"><label>Contraseña actual</label>
+          <div class="pwrow"><input id="cbActual" type="password" placeholder="••••••••"><button class="btn ghost mini" id="btnVerCb" type="button">Ver</button></div>
+        </div>
+        <div class="gfield"><label>Nueva contraseña (mínimo 8, con letras y números)</label><input id="cbNueva" type="password" placeholder="••••••••"></div>
+        <div class="gfield"><label>Repita la nueva contraseña</label><input id="cbNueva2" type="password" placeholder="••••••••"></div>
+        <button class="btn" id="btnCambio" type="submit" style="width:100%">Cambiar contraseña</button>
+      </form>
+      <div class="msg" id="msgCambio"></div>
+      <p class="glink"><button class="linkbtn" id="btnVolverLogin" type="button">← Volver al inicio de sesión</button></p>
     </div>
 
     <!-- primer uso: crear usuario maestro -->

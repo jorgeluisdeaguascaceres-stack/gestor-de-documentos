@@ -96,10 +96,19 @@ tomando como referencia el listado real del sistema. De cada EPS se guarda:
 entidad. Las EPS activas alimentan automáticamente la lista de EPS del
 formulario de **Admisión** (campo con sugerencias).
 
-## Seguridad: cambiar contraseña (Config → Seguridad)
-Cada usuario puede **cambiar su propia contraseña** desde esta sección: escribe
-la **contraseña actual**, la **nueva** (mínimo 8 caracteres con letras y
-números) y su confirmación. La clave se guarda cifrada (PBKDF2) en el navegador.
+## Seguridad: cambiar contraseña
+Hay **dos formas** de cambiar la contraseña:
+
+1. **Desde la pantalla de inicio** (lo más práctico cuando le entregas la clave a
+   un médico y quieres que él mismo la cambie): en el login hay un enlace
+   **¿Cambiar contraseña?**. Al tocarlo, el propio usuario escribe su **usuario**,
+   su **contraseña actual** y la **nueva** (mínimo 8 caracteres con letras y
+   números). No necesita entrar al sistema ni pasar por Configuraciones; al
+   confirmar, vuelve al inicio de sesión para ingresar con la clave nueva.
+2. **Dentro del sistema** (Config → Seguridad): el usuario que ya inició sesión
+   cambia su propia contraseña de la misma manera.
+
+La clave se guarda cifrada (PBKDF2) en el navegador.
 
 > Recuerda: al ser una app **solo-navegador** (sin servidor), estas contraseñas
 > y permisos NO constituyen seguridad real ni cumplen la **Ley 1581 de 2012**

@@ -131,6 +131,7 @@ function aplicarPermisos(){
 function mostrarGate(){
   const alta = necesitaMaestro();
   $('gAlta').hidden = !alta; $('gLogin').hidden = alta;
+  if($('gCambio')) $('gCambio').hidden = true;
   $('msgLogin').textContent=''; $('msgAlta').textContent='';
   $('gate').hidden = false;
 }
@@ -149,6 +150,47 @@ $('formAlta').addEventListener('submit', async (e)=>{ e.preventDefault();
   setUsuarios([maestro]); store.set('sesion', {usuario, ts:Date.now()}); entrar(maestro);
 });
 $('btnSalir').addEventListener('click', salir);
+
+/* ---------- cambiar contraseña desde el inicio (sin iniciar sesión) ---------- */
+if($('btnIrCambio')){
+  $('btnIrCambio').addEventListener('click', ()=>{
+    $('gLogin').hidden=true; if($('gCambio')) $('gCambio').hidden=false;
+    ['cbUsuario','cbActual','cbNueva','cbNueva2'].forEach(id=>{ if($(id)) $(id).value=''; });
+    if($('msgCambio')) $('msgCambio').textContent='';
+    if($('inUsuario') && $('cbUsuario')) $('cbUsuario').value=$('inUsuario').value.trim();
+    if($('cbUsuario')) $('cbUsuario').focus();
+  });
+}
+if($('btnVolverLogin')){
+  $('btnVolverLogin').addEventListener('click', ()=>{ if($('gCambio')) $('gCambio').hidden=true; $('gLogin').hidden=false; $('msgLogin').textContent=''; });
+}
+if($('btnVerCb')){
+  $('btnVerCb').addEventListener('click', ()=>{ const i=$('cbActual'); i.type = i.type==='password'?'text':'password'; });
+}
+if($('formCambio')){
+  $('formCambio').addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const usuario=$('cbUsuario').value.trim().toLowerCase();
+    const act=$('cbActual').value, n1=$('cbNueva').value, n2=$('cbNueva2').value;
+    if(!usuario){ flash($('msgCambio'),'Escriba su usuario.','err'); return; }
+    const u=usuarios().find(x=>x.usuario===usuario);
+    if(!u || !u.hash){ flash($('msgCambio'),'Usuario o contraseña actual incorrectos.','err'); return; }
+    const chk=await hashPwd(act, u.salt);
+    if(chk.hash!==u.hash){ flash($('msgCambio'),'Usuario o contraseña actual incorrectos.','err'); return; }
+    if(n1.length<8 || !/[a-z]/i.test(n1) || !/[0-9]/.test(n1)){ flash($('msgCambio'),'La nueva contraseña debe tener 8+ caracteres con letras y números.','err'); return; }
+    if(n1!==n2){ flash($('msgCambio'),'Las nuevas contraseñas no coinciden.','err'); return; }
+    if(n1===act){ flash($('msgCambio'),'La nueva contraseña debe ser distinta a la actual.','err'); return; }
+    const h=await hashPwd(n1);
+    const l=usuarios(); const t=l.find(x=>x.id===u.id);
+    if(!t){ flash($('msgCambio'),'No se encontró el usuario.','err'); return; }
+    t.salt=h.salt; t.hash=h.hash; setUsuarios(l);
+    if(CURRENT && CURRENT.id===t.id){ CURRENT.salt=t.salt; CURRENT.hash=t.hash; }
+    ['cbActual','cbNueva','cbNueva2'].forEach(id=>{ $(id).value=''; });
+    flash($('msgCambio'),'Contraseña actualizada. Ya puede iniciar sesión con la nueva.','ok');
+    if($('inUsuario')) $('inUsuario').value=usuario;
+    setTimeout(()=>{ if($('gCambio')) $('gCambio').hidden=true; $('gLogin').hidden=false; if($('inClave')) $('inClave').focus(); }, 1400);
+  });
+}
 
 /* ---------- navegación entre vistas ---------- */
 const VIEW_PERM = { admision:'admision', registro:'registro', consulta:'consulta', config:'config' };

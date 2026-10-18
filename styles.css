@@ -185,6 +185,9 @@ td.csw{text-align:center}
 .pwrow input{flex:1 1 auto}
 .pwrow .btn{flex:0 0 auto}
 .gbox .msg{text-align:center;margin-top:12px;min-height:18px}
+.glink{text-align:center;margin:14px 0 0}
+.linkbtn{background:none;border:0;color:var(--cian,#00c8f8);font-size:13px;font-weight:600;cursor:pointer;padding:4px 6px;border-radius:6px}
+.linkbtn:hover{text-decoration:underline;color:#4fd8ff}
 td.cellwrap{white-space:normal;max-width:360px;line-height:1.4;color:var(--txt)}
 #csPdf:disabled{opacity:.45;cursor:not-allowed}
 .biglist{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin-top:4px}
