@@ -1,9 +1,4 @@
-# No subir nunca los datos ni las credenciales al repositorio
-data/
-*.log
-db.json
-usuarios.json
-bitacora.log
-.env
 node_modules/
+*.log
 .DS_Store
+.env
