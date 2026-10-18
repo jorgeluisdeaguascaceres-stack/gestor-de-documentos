@@ -1019,10 +1019,40 @@ function cfgTab(name){
   if(name==='respaldo' && typeof bkRefrescar==='function') bkRefrescar();
   if(name==='eps' && typeof renderEps==='function') renderEps();
   if(name==='seguridad' && typeof segInfo==='function') segInfo();
+  if(name==='limpiar' && typeof limInfoRefrescar==='function') limInfoRefrescar();
 }
 (function(){
   const nav=$('cfgNav');
   if(nav) nav.addEventListener('click', (e)=>{ const b=e.target.closest('[data-cfg]'); if(b) cfgTab(b.getAttribute('data-cfg')); });
+})();
+
+/* ============================================================
+   LIMPIAR SISTEMA · borra SOLO pacientes (admisiones + notas)
+   Conserva intactos: usuarios, EPS e IPS.
+   ============================================================ */
+function limInfoRefrescar(){
+  const info=$('limInfo'); if(!info) return;
+  const nPac = store.get('admisiones',[]).length;
+  const nNotas = store.get('notas',[]).length;
+  info.textContent = 'Actualmente hay '+nPac+' paciente(s) y '+nNotas+' nota(s) de historia clínica. Se eliminarán todos; los usuarios, EPS e IPS NO se tocan.';
+  const i=$('limConfirm'); if(i) i.value='';
+  const m=$('limMsg'); if(m){ m.textContent=''; m.className='msg'; }
+}
+(function(){
+  const btn=$('btnLimpiar'); if(!btn) return;
+  btn.addEventListener('click', ()=>{
+    const msg=$('limMsg');
+    const txt=(($('limConfirm')&&$('limConfirm').value)||'').trim().toUpperCase();
+    if(txt!=='BORRAR'){ flash(msg,'Escriba la palabra BORRAR para confirmar.','err'); return; }
+    if(!confirm('¿Seguro que desea borrar TODOS los pacientes y sus notas? Los usuarios, EPS e IPS se conservan. Esta acción no se puede deshacer.')) return;
+    store.set('admisiones', []);
+    store.set('notas', []);
+    if($('limConfirm')) $('limConfirm').value='';
+    try{ refreshPacList(); renderReg&&renderReg(); renderAdm&&renderAdm(); refreshMedList&&refreshMedList(); }catch(e){}
+    if(msg){ msg.className='msg ok'; msg.textContent='✓ Sistema limpio. Se borraron los pacientes y sus notas; usuarios, EPS e IPS intactos.'; }
+    limInfoRefrescar();
+    if(msg){ msg.className='msg ok'; msg.textContent='✓ Sistema limpio. Se borraron los pacientes y sus notas; usuarios, EPS e IPS intactos.'; }
+  });
 })();
 
 /* ============================================================

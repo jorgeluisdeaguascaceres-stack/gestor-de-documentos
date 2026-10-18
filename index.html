@@ -241,6 +241,7 @@
         <button class="cfgtab" data-cfg="eps" type="button">Gestión de EPS</button>
         <button class="cfgtab" data-cfg="seguridad" type="button">Seguridad</button>
         <button class="cfgtab" data-cfg="respaldo" type="button">Respaldo</button>
+        <button class="cfgtab" data-cfg="limpiar" type="button">Limpiar sistema</button>
       </nav>
       <div class="cfgbody">
 
@@ -387,6 +388,23 @@
               <span class="msg" id="bkMsg"></span>
             </div>
             <p class="hint" id="bkInfo" style="margin-top:12px"></p>
+          </div>
+        </div>
+
+        <!-- Apartado: Limpiar sistema (borra solo pacientes) -->
+        <div class="cfgpane" id="cfg-limpiar" hidden>
+          <div class="panel">
+            <h3>Limpiar el sistema</h3>
+            <p class="hint">Borra <b>solo los pacientes</b>: sus admisiones y todas sus notas de historia clínica. Lo demás queda <b>intacto</b>: los <b>usuarios</b> del equipo, las <b>EPS</b> y los datos de la <b>IPS</b> no se tocan. Útil para dejar el sistema listo para empezar de cero sin volver a crear usuarios ni configuración.</p>
+            <p class="hint" id="limInfo" style="margin-top:8px"></p>
+            <div class="panel" style="border-color:#b3261e;background:rgba(179,38,30,.08);margin-top:12px">
+              <p class="hint" style="margin:0 0 10px"><b>Esta acción no se puede deshacer.</b> Si quiere conservar los pacientes, primero use <b>Respaldo → Exportar respaldo</b>. Para confirmar, escriba <b>BORRAR</b> y toque el botón.</p>
+              <div class="actions" style="gap:10px;flex-wrap:wrap">
+                <input id="limConfirm" type="text" placeholder="Escriba BORRAR" autocomplete="off" style="max-width:180px">
+                <button class="btn del" id="btnLimpiar" type="button">Limpiar solo pacientes</button>
+                <span class="msg" id="limMsg"></span>
+              </div>
+            </div>
           </div>
         </div>
 
