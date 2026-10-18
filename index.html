@@ -545,9 +545,60 @@
       </form>
       <div class="msg" id="msgAlta"></div>
     </div>
+
+    <!-- MODO NUBE: ver los datos desde cualquier dispositivo con internet -->
+    <div id="gNube" hidden>
+      <h2>Acceso en la nube</h2>
+      <p class="gsub">Inicie sesión con su correo y contraseña. Sus datos se verán en cualquier dispositivo.</p>
+
+      <!-- iniciar sesión en la nube -->
+      <div id="nbLogin">
+        <form id="formCloudLogin" autocomplete="on">
+          <div class="gfield"><label>Correo electrónico</label><input id="clUser" type="email" autocomplete="username" placeholder="nombre@correo.com"></div>
+          <div class="gfield"><label>Contraseña</label>
+            <div class="pwrow"><input id="clPass" type="password" autocomplete="current-password" placeholder="••••••••"><button class="btn ghost mini" id="btnVerCl" type="button">Ver</button></div>
+          </div>
+          <button class="btn" id="btnCloudLogin" type="submit" style="width:100%">Ingresar</button>
+        </form>
+        <div class="msg" id="clMsg"></div>
+        <p class="glink"><button class="linkbtn" id="btnIrRegistro" type="button">¿No tiene cuenta? Crear una</button></p>
+      </div>
+
+      <!-- crear cuenta en la nube -->
+      <div id="nbRegistro" hidden>
+        <p class="gsub">Cree una cuenta nueva. El <b>primer</b> usuario registrado será el <b>maestro</b> (acceso a Configuraciones).</p>
+        <form id="formCloudSignup" autocomplete="off">
+          <div class="gfield"><label>Nombre y apellido</label><input id="caNombre" placeholder="Jorge de Aguas"></div>
+          <div class="gfield"><label>Correo electrónico</label><input id="caUser" type="email" placeholder="nombre@correo.com"></div>
+          <div class="gfield"><label>Contraseña (mínimo 6)</label><input id="caPass" type="password" placeholder="••••••••"></div>
+          <button class="btn" id="btnCloudSignup" type="submit" style="width:100%">Crear cuenta</button>
+        </form>
+        <div class="msg" id="caMsg"></div>
+        <p class="glink"><button class="linkbtn" id="btnVolverCloudLogin" type="button">← Volver a iniciar sesión</button></p>
+      </div>
+
+      <!-- configuración de la conexión (solo la primera vez) -->
+      <div id="nbConfig" hidden>
+        <p class="gsub">Pegue los datos de su proyecto de nube (los encuentra en la guía LÉEME). Solo se piden una vez por dispositivo.</p>
+        <div class="gfield"><label>Project URL</label><input id="ncUrl" placeholder="https://xxxx.supabase.co"></div>
+        <div class="gfield"><label>Clave pública (anon)</label><input id="ncAnon" placeholder="eyJhbGciOi..."></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn ghost" id="btnNubeProbar" type="button" style="flex:1">Probar</button>
+          <button class="btn" id="btnNubeGuardar" type="button" style="flex:1">Guardar y conectar</button>
+        </div>
+        <div class="msg" id="ncMsg"></div>
+      </div>
+
+      <p class="glink"><button class="linkbtn" id="btnConfigNube" type="button">⚙ Configurar conexión</button> &nbsp;·&nbsp; <button class="linkbtn" id="btnModoLocal" type="button">Usar sin internet (local)</button></p>
+    </div>
+
+    <!-- pie común: entrada a la nube (visible en modo local) -->
+    <p class="glink" id="gatePie" style="margin-top:14px;border-top:1px solid rgba(255,255,255,.08);padding-top:12px"><button class="linkbtn" id="btnIrNube" type="button">☁ Conectar a la nube (ver datos en cualquier móvil)</button></p>
   </div>
 </div>
 <script src="jspdf.umd.min.js"></script>
 <script src="app.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="nube.js"></script>
 </body>
 </html>

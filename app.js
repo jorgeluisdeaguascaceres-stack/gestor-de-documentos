@@ -9,7 +9,9 @@
 const $ = (id) => document.getElementById(id);
 const store = {
   get(k, def){ try{ return JSON.parse(localStorage.getItem('nxm_'+k)) ?? def; }catch(e){ return def; } },
-  set(k, v){ localStorage.setItem('nxm_'+k, JSON.stringify(v)); }
+  set(k, v){ localStorage.setItem('nxm_'+k, JSON.stringify(v)); if(!store._silent && typeof window.cloudPush==='function'){ try{ window.cloudPush(k, v); }catch(e){} } },
+  setSilent(k, v){ store._silent=true; try{ localStorage.setItem('nxm_'+k, JSON.stringify(v)); } finally { store._silent=false; } },
+  _silent:false
 };
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 function fmtFecha(iso){
@@ -1285,6 +1287,7 @@ function init(){
   const now = new Date(); now.setMinutes(now.getMinutes()-now.getTimezoneOffset());
   $('admFecha').value = now.toISOString().slice(0,16);
   repararPerms();
+  if(localStorage.getItem('nxm_cloud_cfg')){ return; } /* modo nube: lo gestiona nube.js */
   const u = sesionUser();
   if(u){ entrar(u); } else { mostrarGate(); }
 }

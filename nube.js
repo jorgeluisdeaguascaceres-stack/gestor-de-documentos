@@ -1,278 +1,310 @@
-/* ==================================================================== *
- * nube.js  —  Almacenamiento permanente en Cloudflare R2
- * -------------------------------------------------------------------- *
- * Guarda los PDF, el listado de carpetas y los usuarios FUERA del
- * servidor, de modo que nada se borra cuando Render reinicia el
- * servicio (algo que en el plan gratuito ocurre a diario).
- *
- * Solo usa modulos nativos de Node.js (https + crypto): no hay que
- * instalar librerias. Habla el protocolo S3 con firma AWS v4, que es
- * el que entiende Cloudflare R2 (y tambien Backblaze B2, MinIO, AWS S3
- * o Wasabi si algun dia se quiere cambiar de proveedor).
- *
- * Variables de entorno necesarias:
- *   R2_ENDPOINT           https://<ID_DE_CUENTA>.r2.cloudflarestorage.com
- *                         (o R2_ACCOUNT_ID=<ID_DE_CUENTA> y se arma solo)
- *                         Tambien vale un endpoint compatible S3 de otro
- *                         proveedor, p. ej. Supabase Storage:
- *                         https://<proyecto>.storage.supabase.co/storage/v1/s3
- *   R2_BUCKET             nombre del bucket, p. ej. gestion-documental
- *   R2_ACCESS_KEY_ID      Access Key ID del token de R2
- *   R2_SECRET_ACCESS_KEY  Secret Access Key del token de R2
- *   R2_PREFIX             (opcional) subcarpeta dentro del bucket
- *   R2_REGION             (opcional) por defecto "auto"; en Supabase u otros
- *                         proveedores hay que poner su region, p. ej. us-east-2
- * ==================================================================== */
-"use strict";
+/* ============================================================================
+   NEXUSMED · Módulo de nube (opcional)
+   Conecta la app a Supabase para ver los datos desde cualquier dispositivo
+   con internet e iniciar sesión real con correo + contraseña.
+   Si no se configura, la app sigue funcionando en modo local (sin internet).
+   ========================================================================== */
+(function(){
+  'use strict';
 
-var https  = require("https");
-var http   = require("http");
-var crypto = require("crypto");
-var { URL } = require("url");
+  var $ = function(id){ return document.getElementById(id); };
+  var CFG_KEY = 'nxm_cloud_cfg';
+  var SYNC_KEYS = ['usuarios','admisiones','notas','ips','eps'];
+  var sb = null;          // cliente supabase
+  var cfg = null;         // {url, anon}
+  var pulling = false;    // evita bucles al recibir datos de la nube
+  var channel = null;
 
-var ENDPOINT = (process.env.R2_ENDPOINT || "").trim();
-if(!ENDPOINT && process.env.R2_ACCOUNT_ID){
-  ENDPOINT = "https://" + String(process.env.R2_ACCOUNT_ID).trim() + ".r2.cloudflarestorage.com";
-}
-var BUCKET = (process.env.R2_BUCKET || "").trim();
-var LLAVE   = (process.env.R2_ACCESS_KEY_ID || "").trim();
-var SECRETO = (process.env.R2_SECRET_ACCESS_KEY || "").trim();
-var REGION  = (process.env.R2_REGION || "auto").trim();
-var PREFIJO = (process.env.R2_PREFIX || "").replace(/^\/+|\/+$/g, "");
-
-/* Algunos proveedores (Supabase Storage, MinIO detras de un proxy) dan un
-   endpoint con carpeta, p. ej. https://xxx.storage.supabase.co/storage/v1/s3
-   Ese trozo de ruta hay que conservarlo delante del bucket y tambien al
-   firmar la peticion, o el servidor responde 404 / firma invalida. */
-var RAIZ = "";
-try {
-  RAIZ = new URL(ENDPOINT).pathname.replace(/\/+$/, "");
-  if(RAIZ === "/") RAIZ = "";
-} catch(e){ RAIZ = ""; }
-
-var CONFIGURADA = !!(ENDPOINT && BUCKET && LLAVE && SECRETO);
-var VACIO_SHA = crypto.createHash("sha256").update("").digest("hex");
-var TIEMPO_MS = 30000;      // tiempo maximo de espera por peticion
-var INTENTOS  = 3;          // reintentos ante fallos de red o 5xx
-
-function activa(){ return CONFIGURADA; }
-
-/* Describe donde se guardan los datos, en palabras sencillas. */
-function describe(){
-  if(!CONFIGURADA){
-    return { activa:false, permanente:false, tipo:"disco",
-             detalle:"el disco del propio servidor (puede borrarse al reiniciar)" };
+  /* ---------- utilidades de UI ---------- */
+  function msg(el, text, cls){
+    if(!el) return; el.textContent = text || '';
+    el.className = 'msg' + (cls ? ' '+cls : '');
   }
-  var h = "";
-  try { h = new URL(ENDPOINT).host; } catch(e){ h = ENDPOINT; }
-  return { activa:true, permanente:true, tipo:"r2", deposito:BUCKET, prefijo:PREFIJO || "",
-           detalle:"almacenamiento permanente en la nube (" + BUCKET + (PREFIJO ? "/" + PREFIJO : "") + " en " + h + ")" };
-}
+  function show(id, on){ var e=$(id); if(e) e.hidden = !on; }
 
-/* ---------------- utilidades de firma AWS v4 ---------------- */
+  function leerCfg(){
+    try{ return JSON.parse(localStorage.getItem(CFG_KEY)); }catch(e){ return null; }
+  }
+  function guardarCfg(c){ localStorage.setItem(CFG_KEY, JSON.stringify(c)); }
+  function borrarCfg(){ localStorage.removeItem(CFG_KEY); }
 
-/* Codificacion estricta RFC 3986 (encodeURIComponent deja pasar !'()* ). */
-function uriEnc(s){
-  return encodeURIComponent(String(s)).replace(/[!'()*]/g, function(c){
-    return "%" + c.charCodeAt(0).toString(16).toUpperCase();
-  });
-}
-function rutaEnc(clave){
-  return String(clave).split("/").map(uriEnc).join("/");
-}
-function sha256(buf){
-  return crypto.createHash("sha256").update(buf).digest("hex");
-}
-function hmac(clave, dato){
-  return crypto.createHmac("sha256", clave).update(dato, "utf8").digest();
-}
-function claveFirma(fecha){
-  var k1 = hmac("AWS4" + SECRETO, fecha);
-  var k2 = hmac(k1, REGION);
-  var k3 = hmac(k2, "s3");
-  return hmac(k3, "aws4_request");
-}
-function sellos(){
-  var t = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
-  return { amz: t, dia: t.slice(0, 8) };
-}
+  function crearCliente(c){
+    if(!window.supabase || !window.supabase.createClient) return null;
+    return window.supabase.createClient(c.url, c.anon, {
+      auth: { persistSession: true, autoRefreshToken: true }
+    });
+  }
 
-/* Devuelve la clave completa dentro del bucket, con el prefijo opcional. */
-function clavePlena(clave){
-  var c = String(clave).replace(/^\/+/, "");
-  return PREFIJO ? PREFIJO + "/" + c : c;
-}
+  /* ---------- paneles del gate ---------- */
+  function mostrarGateNube(vista){
+    // oculta el gate local y muestra el de nube
+    ['gLogin','gAlta','gCambio'].forEach(function(id){ show(id, false); });
+    var gate = $('gate'); if(gate) gate.hidden = false;
+    show('gatePie', false);
+    show('gNube', true);
+    show('nbLogin', vista==='login');
+    show('nbRegistro', vista==='registro');
+    show('nbConfig', vista==='config');
+  }
+  function mostrarGateLocal(){
+    show('gNube', false);
+    show('gatePie', true);
+    if(typeof mostrarGateLocalOrig === 'function') mostrarGateLocalOrig();
+  }
 
-/* ---------------- peticion firmada ---------------- */
-function peticion(metodo, clave, cuerpo, opciones){
-  opciones = opciones || {};
-  if(!CONFIGURADA) return Promise.reject(new Error("El almacenamiento en la nube no esta configurado."));
+  /* ---------- sincronización ---------- */
+  function syncPull(cb){
+    if(!sb){ if(cb) cb(); return; }
+    pulling = true;
+    sb.from('app_state').select('key,data').then(function(res){
+      try{
+        if(res && res.data){
+          res.data.forEach(function(row){
+            if(SYNC_KEYS.indexOf(row.key) >= 0 && row.data != null){
+              store.setSilent(row.key, row.data);
+            }
+          });
+        }
+      }finally{
+        pulling = false;
+        if(cb) cb();
+      }
+    }, function(){ pulling = false; if(cb) cb(); });
+  }
 
-  var url  = new URL(ENDPOINT);
-  var base = RAIZ + "/" + uriEnc(BUCKET) + (clave ? "/" + rutaEnc(clavePlena(clave)) : "");
-  var qs   = opciones.query || {};
-  var canonQ = Object.keys(qs).sort().map(function(k){
-    return uriEnc(k) + "=" + uriEnc(qs[k]);
-  }).join("&");
-
-  var datos = cuerpo == null ? Buffer.alloc(0)
-            : (Buffer.isBuffer(cuerpo) ? cuerpo : Buffer.from(String(cuerpo)));
-  var hash  = datos.length ? sha256(datos) : VACIO_SHA;
-  var s = sellos();
-
-  var cab = {
-    "host": url.host,
-    "x-amz-content-sha256": hash,
-    "x-amz-date": s.amz
-  };
-  if(opciones.tipo) cab["content-type"] = opciones.tipo;
-  if(datos.length)  cab["content-length"] = String(datos.length);
-
-  var nombres = Object.keys(cab).sort();
-  var canonCab = nombres.map(function(n){ return n + ":" + String(cab[n]).trim() + "\n"; }).join("");
-  var firmados = nombres.join(";");
-
-  var canonica = [metodo, base, canonQ, canonCab, firmados, hash].join("\n");
-  var ambito   = s.dia + "/" + REGION + "/s3/aws4_request";
-  var porFirmar = ["AWS4-HMAC-SHA256", s.amz, ambito, sha256(canonica)].join("\n");
-  var firma = crypto.createHmac("sha256", claveFirma(s.dia)).update(porFirmar, "utf8").digest("hex");
-
-  cab["authorization"] = "AWS4-HMAC-SHA256 Credential=" + LLAVE + "/" + ambito +
-                         ", SignedHeaders=" + firmados + ", Signature=" + firma;
-
-  var lib = url.protocol === "http:" ? http : https;
-  var conf = {
-    method: metodo,
-    host: url.hostname,
-    port: url.port || (url.protocol === "http:" ? 80 : 443),
-    path: base + (canonQ ? "?" + canonQ : ""),
-    headers: cab
+  // empuja un cambio local a la nube (lo llama store.set automáticamente)
+  window.cloudPush = function(key, value){
+    if(!sb || pulling) return;
+    if(SYNC_KEYS.indexOf(key) < 0) return;
+    sb.from('app_state').upsert({ key: key, data: value }, { onConflict: 'key' })
+      .then(function(){}, function(){});
   };
 
-  return new Promise(function(ok, mal){
-    var pet = lib.request(conf, function(res){
-      var trozos = [];
-      res.on("data", function(c){ trozos.push(c); });
-      res.on("end", function(){
-        ok({ code: res.statusCode, headers: res.headers, body: Buffer.concat(trozos) });
+  function suscribirRealtime(){
+    if(!sb || channel) return;
+    try{
+      channel = sb.channel('app_state_rt')
+        .on('postgres_changes', { event:'*', schema:'public', table:'app_state' }, function(payload){
+          var row = payload && payload.new;
+          if(row && SYNC_KEYS.indexOf(row.key) >= 0 && row.data != null){
+            pulling = true;
+            try{ store.setSilent(row.key, row.data); } finally { pulling = false; }
+            // refresca la vista actual si hay sesión iniciada
+            if(window.CURRENT && typeof window.entrar === 'function'){
+              try{ window.entrar(window.CURRENT); }catch(e){}
+            }
+          }
+        })
+        .subscribe();
+    }catch(e){}
+  }
+
+  /* ---------- resolución de perfil del usuario que inicia sesión ---------- */
+  function uidLocal(){
+    return (typeof window.uid === 'function') ? window.uid()
+      : (Date.now().toString(36) + Math.random().toString(36).slice(2,8));
+  }
+
+  // dado el email autenticado, devuelve (y crea si hace falta) su perfil local
+  function resolverPerfil(email, nombre){
+    var lista = (typeof window.usuarios === 'function') ? window.usuarios() : [];
+    var existente = lista.find(function(u){
+      return (u.email && u.email.toLowerCase() === email.toLowerCase())
+          || (u.usuario && u.usuario.toLowerCase() === email.toLowerCase());
+    });
+    if(existente){
+      existente.ultimo = new Date().toISOString();
+      window.setUsuarios(lista);
+      return existente;
+    }
+    // no existe: el primero es maestro; los demás, médico por defecto
+    var hayMaestro = lista.some(function(u){ return u.rol === 'maestro'; });
+    var rol = (lista.length === 0 || !hayMaestro) ? 'maestro' : 'medico';
+    var perfil = {
+      id: uidLocal(),
+      usuario: email,
+      email: email,
+      nombre: nombre || email.split('@')[0],
+      doc: '', registro: '', especialidad: 'General', firma: '',
+      rol: rol, activo: true, ultimo: new Date().toISOString(),
+      perms: window.defaultPerms(rol)
+    };
+    lista.push(perfil);
+    window.setUsuarios(lista); // esto sí se empuja a la nube
+    return perfil;
+  }
+
+  function iniciarSesionApp(email, nombre){
+    syncPull(function(){
+      var perfil = resolverPerfil(email, nombre);
+      // marca la sesión local (solo este dispositivo)
+      store.setSilent('sesion', { usuario: perfil.usuario, ts: Date.now() });
+      suscribirRealtime();
+      if(typeof window.entrar === 'function') window.entrar(perfil);
+    });
+  }
+
+  /* ---------- acciones de autenticación ---------- */
+  function cloudLogin(email, pass, cb){
+    if(!sb){ cb('No hay conexión configurada.'); return; }
+    sb.auth.signInWithPassword({ email: email, password: pass }).then(function(res){
+      if(res.error){ cb(traducirError(res.error.message)); return; }
+      cb(null);
+    }, function(){ cb('No se pudo conectar. Revise su internet.'); });
+  }
+
+  function cloudSignup(email, pass, nombre, cb){
+    if(!sb){ cb('No hay conexión configurada.'); return; }
+    sb.auth.signUp({ email: email, password: pass }).then(function(res){
+      if(res.error){ cb(traducirError(res.error.message)); return; }
+      // intenta iniciar sesión de inmediato (si no se exige confirmación por correo)
+      sb.auth.signInWithPassword({ email: email, password: pass }).then(function(r2){
+        if(r2.error){
+          cb('__CONFIRMAR__'); // requiere confirmación por correo
+          return;
+        }
+        cb(null);
+      }, function(){ cb('__CONFIRMAR__'); });
+    }, function(){ cb('No se pudo conectar. Revise su internet.'); });
+  }
+
+  function traducirError(m){
+    m = (m||'').toLowerCase();
+    if(m.indexOf('invalid login') >= 0) return 'Correo o contraseña incorrectos.';
+    if(m.indexOf('already registered') >= 0) return 'Ese correo ya tiene una cuenta.';
+    if(m.indexOf('password') >= 0) return 'La contraseña debe tener al menos 6 caracteres.';
+    if(m.indexOf('email') >= 0) return 'Correo electrónico inválido.';
+    return 'No se pudo completar la operación.';
+  }
+
+  /* ---------- sobrescribe salir/mostrarGate en modo nube ---------- */
+  var salirLocal = window.salir;
+  var mostrarGateLocalOrig = window.mostrarGate;
+  window.salir = function(){
+    if(sb){
+      store.setSilent('sesion', null);
+      window.CURRENT = null;
+      try{ sb.auth.signOut(); }catch(e){}
+      mostrarGateNube('login');
+    }else if(typeof salirLocal === 'function'){
+      salirLocal();
+    }
+  };
+
+  window.mostrarGate = function(){
+    if(sb){ mostrarGateNube('login'); }
+    else if(typeof mostrarGateLocalOrig === 'function'){ mostrarGateLocalOrig(); }
+  };
+
+  /* ---------- conexión de eventos de la interfaz ---------- */
+  function conectarUI(){
+    // enlaces para cambiar entre modo local y modo nube
+    if($('btnIrNube')) $('btnIrNube').addEventListener('click', function(){
+      if(!cfg){ mostrarGateNube('config'); } else { mostrarGateNube('login'); }
+    });
+    if($('btnModoLocal')) $('btnModoLocal').addEventListener('click', function(){
+      mostrarGateLocal();
+    });
+    if($('btnConfigNube')) $('btnConfigNube').addEventListener('click', function(){
+      if(cfg){ $('ncUrl').value = cfg.url; $('ncAnon').value = cfg.anon; }
+      mostrarGateNube('config');
+    });
+    if($('btnIrRegistro')) $('btnIrRegistro').addEventListener('click', function(){
+      mostrarGateNube('registro');
+    });
+    if($('btnVolverCloudLogin')) $('btnVolverCloudLogin').addEventListener('click', function(){
+      mostrarGateNube('login');
+    });
+    if($('btnVerCl')) $('btnVerCl').addEventListener('click', function(){
+      var i=$('clPass'); i.type = i.type==='password'?'text':'password';
+    });
+
+    // probar conexión
+    if($('btnNubeProbar')) $('btnNubeProbar').addEventListener('click', function(){
+      var url=$('ncUrl').value.trim(), anon=$('ncAnon').value.trim();
+      if(!/^https:\/\/.+\.supabase\.co\/?$/.test(url)){ msg($('ncMsg'),'La dirección (Project URL) no parece válida.','err'); return; }
+      if(anon.length < 20){ msg($('ncMsg'),'La clave pública (anon) parece incompleta.','err'); return; }
+      msg($('ncMsg'),'Probando…','');
+      var test = crearCliente({url:url, anon:anon});
+      if(!test){ msg($('ncMsg'),'No se pudo cargar el componente de nube.','err'); return; }
+      test.from('app_state').select('key').limit(1).then(function(res){
+        if(res.error && String(res.error.message||'').toLowerCase().indexOf('relation')>=0){
+          msg($('ncMsg'),'Conectó, pero falta crear la tabla. Siga la guía LEEME (script SQL).','err');
+        }else{
+          msg($('ncMsg'),'✓ Conexión correcta. Ya puede guardar.','ok');
+        }
+      }, function(){ msg($('ncMsg'),'No se pudo conectar. Revise la dirección y su internet.','err'); });
+    });
+
+    // guardar configuración y conectar
+    if($('btnNubeGuardar')) $('btnNubeGuardar').addEventListener('click', function(){
+      var url=$('ncUrl').value.trim().replace(/\/$/,''), anon=$('ncAnon').value.trim();
+      if(!/^https:\/\/.+\.supabase\.co$/.test(url)){ msg($('ncMsg'),'La dirección (Project URL) no parece válida.','err'); return; }
+      if(anon.length < 20){ msg($('ncMsg'),'La clave pública (anon) parece incompleta.','err'); return; }
+      cfg = { url:url, anon:anon };
+      guardarCfg(cfg);
+      sb = crearCliente(cfg);
+      msg($('ncMsg'),'✓ Guardado. Ahora inicie sesión.','ok');
+      mostrarGateNube('login');
+    });
+
+    // iniciar sesión en la nube
+    if($('formCloudLogin')) $('formCloudLogin').addEventListener('submit', function(e){
+      e.preventDefault();
+      var email=$('clUser').value.trim(), pass=$('clPass').value;
+      if(!email || !pass){ msg($('clMsg'),'Escriba su correo y contraseña.','err'); return; }
+      msg($('clMsg'),'Ingresando…','');
+      cloudLogin(email, pass, function(err){
+        if(err){ msg($('clMsg'), err, 'err'); return; }
+        $('clPass').value='';
+        iniciarSesionApp(email, '');
       });
     });
-    pet.setTimeout(TIEMPO_MS, function(){ pet.destroy(new Error("Tiempo de espera agotado con el almacenamiento en la nube.")); });
-    pet.on("error", mal);
-    if(datos.length) pet.write(datos);
-    pet.end();
-  });
-}
 
-/* Reintenta ante fallos de red o errores temporales del servidor (5xx). */
-async function conReintento(metodo, clave, cuerpo, opciones){
-  var ultimo;
-  for(var i = 1; i <= INTENTOS; i++){
-    try {
-      var r = await peticion(metodo, clave, cuerpo, opciones);
-      if(r.code < 500 || i === INTENTOS) return r;
-      ultimo = new Error("El almacenamiento respondio " + r.code);
-    } catch(e){
-      ultimo = e;
-      if(i === INTENTOS) throw e;
-    }
-    await new Promise(function(ok){ setTimeout(ok, 350 * i); });
+    // crear cuenta en la nube
+    if($('formCloudSignup')) $('formCloudSignup').addEventListener('submit', function(e){
+      e.preventDefault();
+      var nombre=$('caNombre').value.trim(), email=$('caUser').value.trim(), pass=$('caPass').value;
+      if(!nombre){ msg($('caMsg'),'Escriba su nombre.','err'); return; }
+      if(!email){ msg($('caMsg'),'Escriba su correo.','err'); return; }
+      if(pass.length < 6){ msg($('caMsg'),'La contraseña debe tener al menos 6 caracteres.','err'); return; }
+      msg($('caMsg'),'Creando cuenta…','');
+      cloudSignup(email, pass, nombre, function(err){
+        if(err === '__CONFIRMAR__'){
+          msg($('caMsg'),'Cuenta creada. Revise su correo para confirmarla y luego inicie sesión.','ok');
+          setTimeout(function(){ mostrarGateNube('login'); }, 2500);
+          return;
+        }
+        if(err){ msg($('caMsg'), err, 'err'); return; }
+        $('caPass').value='';
+        iniciarSesionApp(email, nombre);
+      });
+    });
   }
-  throw ultimo;
-}
 
-function textoError(r){
-  var t = r.body ? r.body.toString("utf8") : "";
-  var m = t.match(/<Message>([^<]*)<\/Message>/);
-  return (m ? m[1] : t.slice(0, 200)) || ("error " + r.code);
-}
-
-/* ---------------- operaciones publicas ---------------- */
-
-/* Guarda (o reemplaza) un archivo. */
-async function guardar(clave, datos, tipo){
-  var r = await conReintento("PUT", clave, datos, { tipo: tipo || "application/octet-stream" });
-  if(r.code !== 200 && r.code !== 201) throw new Error("No se pudo guardar en la nube: " + textoError(r));
-  return true;
-}
-
-/* Lee un archivo. Devuelve null si no existe. */
-async function leer(clave){
-  var r = await conReintento("GET", clave, null, {});
-  if(r.code === 404) return null;
-  if(r.code !== 200) throw new Error("No se pudo leer de la nube: " + textoError(r));
-  return r.body;
-}
-
-/* ¿Existe el archivo? Devuelve el tamaño en bytes o -1 si no está. */
-async function tamano(clave){
-  var r = await conReintento("HEAD", clave, null, {});
-  if(r.code === 404) return -1;
-  if(r.code !== 200) throw new Error("No se pudo consultar la nube: " + textoError(r));
-  return parseInt(r.headers["content-length"] || "0", 10);
-}
-
-/* Borra un archivo (no falla si ya no existe). */
-async function borrar(clave){
-  var r = await conReintento("DELETE", clave, null, {});
-  if(r.code !== 204 && r.code !== 200 && r.code !== 404){
-    throw new Error("No se pudo borrar en la nube: " + textoError(r));
-  }
-  return true;
-}
-
-/* Lista claves con un prefijo. Devuelve [{clave, bytes, fecha}] */
-async function listar(prefijo){
-  var salida = [], token = null;
-  do {
-    var q = { "list-type": "2", "max-keys": "1000" };
-    var pre = clavePlena(prefijo || "");
-    if(pre) q.prefix = pre;
-    if(token) q["continuation-token"] = token;
-    var r = await conReintento("GET", "", null, { query: q });
-    if(r.code !== 200) throw new Error("No se pudo listar la nube: " + textoError(r));
-    var xml = r.body.toString("utf8");
-    var re = /<Contents>([\s\S]*?)<\/Contents>/g, m;
-    while((m = re.exec(xml))){
-      var b = m[1];
-      var k  = (b.match(/<Key>([\s\S]*?)<\/Key>/) || [])[1] || "";
-      var sz = (b.match(/<Size>(\d+)<\/Size>/) || [])[1] || "0";
-      var fe = (b.match(/<LastModified>([^<]*)<\/LastModified>/) || [])[1] || "";
-      if(k){
-        var corta = PREFIJO && k.indexOf(PREFIJO + "/") === 0 ? k.slice(PREFIJO.length + 1) : k;
-        salida.push({ clave: corta, bytes: parseInt(sz, 10), fecha: fe });
+  /* ---------- arranque ---------- */
+  function arranque(){
+    conectarUI();
+    cfg = leerCfg();
+    if(!cfg){ return; } // sin configuración: la app sigue en modo local
+    sb = crearCliente(cfg);
+    if(!sb){ mostrarGateNube('config'); return; }
+    // ¿hay sesión de nube activa? (persistida por supabase)
+    sb.auth.getSession().then(function(res){
+      var ses = res && res.data && res.data.session;
+      if(ses && ses.user){
+        var email = ses.user.email;
+        var nombre = (ses.user.user_metadata && ses.user.user_metadata.nombre) || '';
+        iniciarSesionApp(email, nombre);
+      }else{
+        mostrarGateNube('login');
       }
-    }
-    var trunc = /<IsTruncated>true<\/IsTruncated>/.test(xml);
-    token = trunc ? ((xml.match(/<NextContinuationToken>([\s\S]*?)<\/NextContinuationToken>/) || [])[1] || null) : null;
-    if(token) token = token.replace(/&amp;/g, "&");
-  } while(token);
-  return salida;
-}
-
-/* Espacio total ocupado (bytes) y numero de archivos. */
-async function uso(){
-  var l = await listar("");
-  var total = l.reduce(function(a, x){ return a + x.bytes; }, 0);
-  return { archivos: l.length, bytes: total };
-}
-
-/* Comprueba credenciales al arrancar: intenta listar el bucket. */
-async function comprobar(){
-  if(!CONFIGURADA) return { ok:false, error:"sin configurar" };
-  try {
-    var r = await peticion("GET", "", null, { query:{ "list-type":"2", "max-keys":"1" } });
-    if(r.code === 200) return { ok:true };
-    if(r.code === 403) return { ok:false, error:"credenciales rechazadas (revisa la clave de acceso, la clave secreta y la region)" };
-    if(r.code === 404) return { ok:false, error:'el bucket "' + BUCKET + '" no existe (revisa el nombre exacto y el endpoint)' };
-    return { ok:false, error: textoError(r) };
-  } catch(e){
-    return { ok:false, error: e.message };
+    }, function(){ mostrarGateNube('login'); });
   }
-}
 
-module.exports = {
-  activa: activa, describe: describe, comprobar: comprobar,
-  guardar: guardar, leer: leer, borrar: borrar, tamano: tamano,
-  listar: listar, uso: uso
-};
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', arranque);
+  }else{
+    arranque();
+  }
+})();
