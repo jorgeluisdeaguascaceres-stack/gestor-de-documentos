@@ -1,0 +1,14 @@
+{
+  "name": "gestor-de-documentos",
+  "version": "1.0.0",
+  "description": "Sistema de Gestion Documental Medica (CRC, AUT, HEV, FEV, OPF, EPI) con login y almacenamiento de PDF",
+  "private": true,
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=16"
+  },
+  "dependencies": {}
+}
