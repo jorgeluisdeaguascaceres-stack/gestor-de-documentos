@@ -1338,10 +1338,13 @@ if($('epsLimpiar')) $('epsLimpiar').addEventListener('click', ()=>{ epsLimpiarFo
 /* ---------- arranque ---------- */
 function init(){
   const now = new Date(); now.setMinutes(now.getMinutes()-now.getTimezoneOffset());
-  $('admFecha').value = now.toISOString().slice(0,16);
+  if($('admFecha')) $('admFecha').value = now.toISOString().slice(0,16);
   repararPerms();
-  if(localStorage.getItem('nxm_cloud_cfg')){ return; } /* modo nube: lo gestiona nube.js */
   const u = sesionUser();
   if(u){ entrar(u); } else { mostrarGate(); }
 }
-init();
+/* El módulo de nube (nube.js) descarga primero los datos compartidos y luego
+   llama a window.__startApp() para mostrar el inicio de sesión (usuario + clave).
+   Si no hay nube disponible, la app arranca sola en el siguiente ciclo. */
+window.__startApp = init;
+setTimeout(function(){ if(!window.__cloudWillBoot){ init(); } }, 0);
