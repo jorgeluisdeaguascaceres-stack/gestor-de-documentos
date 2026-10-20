@@ -69,6 +69,16 @@
         <span class="moddesc">Buscar servicios por documento y rango de fechas, y exportar en PDF.</span>
       </button>
 
+      <button class="modcard" data-view="domiciliaria" type="button">
+        <span class="tag">ACTIVO</span>
+        <span class="modicon">
+          <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/></svg>
+        </span>
+        <span class="modtitle">Atención domiciliaria</span>
+        <span class="moddesc">Programación y seguimiento de visitas clínicas en casa del paciente.</span>
+      </button>
+
       <button class="modcard" data-view="config" type="button">
         <span class="tag">ACTIVO</span>
         <span class="modicon">
@@ -226,6 +236,49 @@
     </div>
   </section>
 
+  <!-- ===================== ATENCIÓN DOMICILIARIA ===================== -->
+  <section id="domiciliaria" class="view">
+    <div class="viewhead">
+      <button class="back" data-view="home" type="button">← Inicio</button>
+      <h2>Atención domiciliaria</h2>
+      <span class="crumb">Módulo &middot; Visitas en casa</span>
+    </div>
+    <div class="panel">
+      <div class="ptop">
+        <h3>Agenda de visitas</h3>
+        <button class="btn" id="domNueva" type="button">+ Programar visita</button>
+      </div>
+      <form id="formDomF" autocomplete="off">
+        <div class="grid csfiltros">
+          <div><label>Estado</label>
+            <select id="domFEstado">
+              <option value="">Todos</option>
+              <option>Programada</option>
+              <option>Realizada</option>
+              <option>Cancelada</option>
+              <option>No asistió</option>
+            </select></div>
+          <div><label>Profesional</label>
+            <select id="domFMed"><option value="">Todos los profesionales</option></select></div>
+          <div><label>Paciente (documento)</label><input id="domFDoc" inputmode="numeric" placeholder="Documento"></div>
+          <div><label>Desde</label><input id="domFD1" class="datepick" type="text" readonly autocomplete="off" placeholder="año-mes-día"></div>
+          <div><label>Hasta</label><input id="domFD2" class="datepick" type="text" readonly autocomplete="off" placeholder="año-mes-día"></div>
+        </div>
+        <div class="actions">
+          <button class="btn ghost" id="domFLimpiar" type="button">Limpiar filtros</button>
+          <span class="count" id="domCount">0 visitas</span>
+          <span class="msg" id="domMsg"></span>
+        </div>
+      </form>
+    </div>
+    <div class="panel">
+      <div class="tablebox">
+        <table><thead><tr><th>Fecha y hora</th><th>Paciente</th><th>Documento</th><th>Dirección</th><th>Servicio</th><th>Profesional</th><th>Estado</th><th></th></tr></thead>
+        <tbody id="domTb"></tbody></table>
+      </div>
+    </div>
+  </section>
+
   <!-- ===================== CONFIGURACIONES ===================== -->
   <section id="config" class="view">
     <div class="viewhead">
@@ -289,7 +342,7 @@
             <div class="ptop"><h3>Matriz de permisos</h3></div>
             <p class="hint">Solo el <b>usuario maestro</b> administra permisos. Active o desactive el acceso de cada persona a cada módulo con los interruptores. La columna <b>Editar</b> autoriza a modificar admisiones guardadas y la columna <b>Eliminar</b> autoriza a borrar notas clínicas. El permiso de <b>Config</b> está reservado y solo tú puedes concederlo.</p>
             <div class="tablebox">
-              <table><thead><tr><th>Usuario</th><th>Rol</th><th>Admisión</th><th>Registro</th><th>Consulta</th><th>Config</th><th>Editar</th><th>Eliminar</th></tr></thead>
+              <table><thead><tr><th>Usuario</th><th>Rol</th><th>Admisión</th><th>Registro</th><th>Consulta</th><th>Domicilio</th><th>Config</th><th>Editar</th><th>Eliminar</th></tr></thead>
               <tbody id="usrTb"></tbody></table>
             </div>
           </div>
@@ -501,6 +554,53 @@
       <p class="hint">Así se verán los documentos. La historia clínica y cada paraclínico, orden médica o fórmula se descargan como <b>PDF separados</b>.</p>
       <div id="prevDocs"></div>
       <div class="actions" id="prevActions" style="flex-wrap:wrap;gap:8px"></div>
+    </div>
+  </div>
+  <!-- ===================== MODAL · PROGRAMAR / EDITAR VISITA ===================== -->
+  <div class="overlay" id="ovVisita" hidden>
+    <div class="modal">
+      <div class="mtop"><h3 id="visTit">Programar visita domiciliaria</h3><button class="mx" id="visX" type="button">&times;</button></div>
+      <form id="formVisita" autocomplete="off">
+        <div class="grid">
+          <div class="wide"><label class="req">Buscar paciente (nombre o documento)</label>
+            <input id="visBuscar" list="pacFull" placeholder="Escriba el nombre o el número de documento" autocomplete="off"></div>
+          <div><label>Paciente</label><input id="visPacNom" readonly placeholder="—"></div>
+          <div><label>Documento</label><input id="visPacDoc" readonly placeholder="—"></div>
+          <div class="wide"><label>Dirección de la visita</label><input id="visDir" placeholder="Dirección del paciente"></div>
+          <div><label>Teléfono</label><input id="visTel" inputmode="tel"></div>
+          <div><label>EPS</label><input id="visEps" readonly placeholder="—"></div>
+          <div><label class="req">Fecha y hora</label><input id="visFecha" type="datetime-local"></div>
+          <div><label>Tipo de servicio</label>
+            <select id="visServ">
+              <option>Visita médica domiciliaria</option>
+              <option>Enfermería</option>
+              <option>Toma de muestras</option>
+              <option>Terapia física</option>
+              <option>Terapia respiratoria</option>
+              <option>Fonoaudiología</option>
+              <option>Terapia ocupacional</option>
+              <option>Psicología</option>
+              <option>Curación</option>
+              <option>Cuidado de traqueotomía</option>
+              <option>Administración de medicamentos</option>
+              <option>Entrega de insumos</option>
+            </select></div>
+          <div><label>Profesional asignado</label><input id="visMed" list="medFull" placeholder="Dr(a). ..."><datalist id="medFull"></datalist></div>
+          <div><label>Estado</label>
+            <select id="visEstado">
+              <option>Programada</option>
+              <option>Realizada</option>
+              <option>Cancelada</option>
+              <option>No asistió</option>
+            </select></div>
+          <div class="wide"><label>Observaciones</label><textarea id="visObs" rows="3"></textarea></div>
+        </div>
+        <div class="actions">
+          <button class="btn" id="visGuardar" type="submit">Guardar visita</button>
+          <button class="btn ghost" id="visCancel" type="button">Cancelar</button>
+          <span class="msg" id="visMsg"></span>
+        </div>
+      </form>
     </div>
   </div>
 </main>
