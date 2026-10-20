@@ -683,11 +683,17 @@ function construirDoc(note, titulo, drawBody, opts){
     }catch(_){ }
   }
   d.setFont('helvetica','bold'); d.setFontSize(15); d.setTextColor(11,22,34);
-  if(ips.nombre){ d.text(ips.nombre, txtX, y); y+=16; }
+  if(ips.nombre){ d.text(ips.nombre, txtX, y); y+=15; }
   d.setFont('helvetica','normal'); d.setFontSize(8.5); d.setTextColor(GRIS[0],GRIS[1],GRIS[2]);
-  const sub=[ips.nit?('NIT '+ips.nit):'', ips.hab?('Habilitación '+ips.hab):''].filter(Boolean).join('     ·     ');
-  if(sub){ d.text(sub, txtX, y); y+=12; }
-  if(!ips.nombre && !sub){ y+=16; }
+  const subLineas=[];
+  const idItems=[ips.nit?('NIT '+ips.nit):'', ips.hab?('Habilitación '+ips.hab):''].filter(Boolean).join('     ·     ');
+  if(idItems) subLineas.push(idItems);
+  if(ips.dir) subLineas.push('Dirección: '+ips.dir);
+  const contacto=[ips.tel?('Tel. '+ips.tel):'', ips.email?('Correo: '+ips.email):''].filter(Boolean).join('     ·     ');
+  if(contacto) subLineas.push(contacto);
+  if(ips.ciudad) subLineas.push(ips.ciudad);
+  subLineas.forEach(function(ln){ d.text(ln, txtX, y); y+=11; });
+  if(!ips.nombre && !subLineas.length){ y+=16; }
   if(y < mt+54){ y = mt+54; }
   d.setDrawColor(LINEA[0],LINEA[1],LINEA[2]); d.setLineWidth(0.8); d.line(ml,y,pw-mr,y); y+=4;
   d.setFont('helvetica','bold'); d.setFontSize(11.5); d.setTextColor(11,22,34);
@@ -901,6 +907,10 @@ let ipsLogoData = null; /* dataURL del logo cargado */
 function loadIps(){
   const p=store.get('ips',{});
   $('ipsNombre').value=p.nombre||''; $('ipsNit').value=p.nit||''; $('ipsHab').value=p.hab||'';
+  if($('ipsDir')) $('ipsDir').value=p.dir||'';
+  if($('ipsTel')) $('ipsTel').value=p.tel||'';
+  if($('ipsEmail')) $('ipsEmail').value=p.email||'';
+  if($('ipsCiudad')) $('ipsCiudad').value=p.ciudad||'';
   ipsLogoData = (p.logo && /^data:image\/(png|jpeg)/.test(p.logo)) ? p.logo : null;
   const prev=$('ipsLogoPrev');
   if(prev){
@@ -926,7 +936,10 @@ if($('ipsLogoQuitar')){
 }
 $('formIps').addEventListener('submit', (e)=>{
   e.preventDefault();
-  store.set('ips',{ nombre:$('ipsNombre').value.trim(), nit:$('ipsNit').value.trim(), hab:$('ipsHab').value.trim(), logo:ipsLogoData||'' });
+  store.set('ips',{ nombre:$('ipsNombre').value.trim(), nit:$('ipsNit').value.trim(), hab:$('ipsHab').value.trim(),
+    dir:($('ipsDir')?$('ipsDir').value.trim():''), tel:($('ipsTel')?$('ipsTel').value.trim():''),
+    email:($('ipsEmail')?$('ipsEmail').value.trim():''), ciudad:($('ipsCiudad')?$('ipsCiudad').value.trim():''),
+    logo:ipsLogoData||'' });
   flash($('ipsMsg'),'Parámetros guardados.','ok');
 });
 /* -- usuarios y permisos (solo el maestro ve esta vista) -- */
