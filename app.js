@@ -50,17 +50,17 @@ function crearSet(fn){ const o={}; TIPOS_NOTA.forEach(t=> o[t.key]=fn(t.key)); r
 /* notas propias del personal de enfermería / auxiliar */
 const TIPOS_ENFERMERIA = ['enf','cama','traq'];
 const ESPECIALIDADES = ['General','Fisioterapeuta','Fonoaudiólogo','Terapeuta Ocupacional','Terapeuta Respiratorio','Psicólogo','Medicina Interna','Pediatría','Ginecología','Urología','Cirugía General','Ortopedia','Auxiliar de Enfermería','Enfermería Jefe'];
-const MODS = ['admision','registro','consulta','domiciliaria','config'];
+const MODS = ['admision','registro','consulta','config'];
 function defaultPerms(rol){
   switch(rol){
-    case 'maestro': return {admision:true, registro:true, consulta:true, domiciliaria:true, config:true, editar:true, eliminar:true, crear:crearSet(()=>true)};
-    case 'admin':   return {admision:true, registro:true, consulta:true, domiciliaria:true, config:false, editar:true, eliminar:true, crear:crearSet(()=>true)};
+    case 'maestro': return {admision:true, registro:true, consulta:true, config:true, editar:true, eliminar:true, crear:crearSet(()=>true)};
+    case 'admin':   return {admision:true, registro:true, consulta:true, config:false, editar:true, eliminar:true, crear:crearSet(()=>true)};
     /* el médico crea todo MENOS las notas propias de enfermería/auxiliar */
-    case 'medico':  return {admision:false, registro:true, consulta:true, domiciliaria:true, config:false, editar:false, eliminar:false, crear:crearSet(k=> !TIPOS_ENFERMERIA.includes(k))};
+    case 'medico':  return {admision:false, registro:true, consulta:true, config:false, editar:false, eliminar:false, crear:crearSet(k=> !TIPOS_ENFERMERIA.includes(k))};
     /* el auxiliar/enfermería SOLO crea sus notas; puede VER las demás */
-    case 'auxiliar': return {admision:false, registro:true, consulta:true, domiciliaria:true, config:false, editar:false, eliminar:false, crear:crearSet(k=> TIPOS_ENFERMERIA.includes(k))};
-    case 'administrativo': return {admision:true, registro:false, consulta:true, domiciliaria:true, config:false, editar:false, eliminar:false, crear:crearSet(()=>false)};
-    default: return {admision:false, registro:false, consulta:false, domiciliaria:false, config:false, editar:false, eliminar:false, crear:crearSet(()=>false)};
+    case 'auxiliar': return {admision:false, registro:true, consulta:true, config:false, editar:false, eliminar:false, crear:crearSet(k=> TIPOS_ENFERMERIA.includes(k))};
+    case 'administrativo': return {admision:true, registro:false, consulta:true, config:false, editar:false, eliminar:false, crear:crearSet(()=>false)};
+    default: return {admision:false, registro:false, consulta:false, config:false, editar:false, eliminar:false, crear:crearSet(()=>false)};
   }
 }
 function bytesToHex(b){ return Array.from(b).map(x=>x.toString(16).padStart(2,'0')).join(''); }
@@ -122,7 +122,7 @@ function entrar(u){
   $('userRole').textContent = (ROLES[u.rol]||u.rol).toUpperCase();
   aplicarPermisos();
   renderAdm(); loadIps(); refreshPacList(); regMostrarTipos(); refreshMedList();
-  epsRefrescarDatalist(); domRefreshMedList(); renderDom();
+  epsRefrescarDatalist();
   if(can('config')){ renderUsr(); renderCrear(); renderUsrList(); renderEps(); segInfo(); }
   goView('home');
 }
@@ -195,12 +195,11 @@ if($('formCambio')){
 }
 
 /* ---------- navegación entre vistas ---------- */
-const VIEW_PERM = { admision:'admision', registro:'registro', consulta:'consulta', domiciliaria:'domiciliaria', config:'config' };
+const VIEW_PERM = { admision:'admision', registro:'registro', consulta:'consulta', config:'config' };
 function goView(name){
   if(VIEW_PERM[name] && !can(VIEW_PERM[name])){ alert('No tienes permiso para acceder a este módulo.'); return; }
   if(name==='registro') regMostrarTipos();
   if(name==='consulta') refreshMedList();
-  if(name==='domiciliaria'){ domRefreshMedList(); renderDom(); }
   document.querySelectorAll('.view').forEach(v=> v.classList.toggle('sel', v.id===name));
   window.scrollTo({top:0,behavior:'smooth'});
 }
@@ -1060,14 +1059,13 @@ function limInfoRefrescar(){
    RESPALDO · Exportar / Importar (traslado manual entre equipos)
    No es sincronización ni servidor: genera/lee un archivo JSON.
    ============================================================ */
-const BK_CLAVES = ['usuarios','admisiones','notas','ips','eps','visitas'];
+const BK_CLAVES = ['usuarios','admisiones','notas','ips','eps'];
 
 function bkInfoTexto(){
   const u=store.get('usuarios',[]).length;
   const a=store.get('admisiones',[]).length;
   const n=store.get('notas',[]).length;
-  const v=store.get('visitas',[]).length;
-  return 'En este dispositivo hay '+u+' usuario(s), '+a+' admisión(es), '+n+' registro(s) médico(s) y '+v+' visita(s) domiciliaria(s).';
+  return 'En este dispositivo hay '+u+' usuario(s), '+a+' admisión(es) y '+n+' registro(s) médico(s).';
 }
 function bkRefrescar(){ const el=$('bkInfo'); if(el) el.textContent=bkInfoTexto(); }
 
@@ -1094,8 +1092,7 @@ function importarRespaldo(texto){
   const resumen='Se reemplazarán los datos de ESTE dispositivo por los del respaldo:\n\n'
     +'• Usuarios: '+((d.usuarios||[]).length)+'\n'
     +'• Admisiones: '+((d.admisiones||[]).length)+'\n'
-    +'• Registros médicos: '+((d.notas||[]).length)+'\n'
-    +'• Visitas domiciliarias: '+((d.visitas||[]).length)+'\n\n'
+    +'• Registros médicos: '+((d.notas||[]).length)+'\n\n'
     +'Esta acción no se puede deshacer. ¿Continuar?';
   if(!confirm(resumen)) return;
   BK_CLAVES.forEach(k=>{ if(d[k]!==undefined && d[k]!==null) store.set(k, d[k]); });
@@ -1256,178 +1253,6 @@ if($('formEps')){
   });
 }
 if($('epsLimpiar')) $('epsLimpiar').addEventListener('click', ()=>{ epsLimpiarForm(); flash($('epsMsg'),'',''); });
-
-/* ============================================================
-   MÓDULO · ATENCIÓN DOMICILIARIA (agenda de visitas en casa)
-   Datos locales en la clave 'visitas'. Se apoya en las admisiones
-   para los datos del paciente (dirección, teléfono, EPS).
-   ============================================================ */
-const VIS_ESTADOS = ['Programada','Realizada','Cancelada','No asistió'];
-function domVisitas(){ return store.get('visitas', []); }
-function setDomVisitas(l){ store.set('visitas', l); }
-/* clase de pastilla según estado */
-function domEstadoPill(est){
-  switch(est){
-    case 'Realizada':  return 'ok';
-    case 'Cancelada':  return 'off';
-    case 'No asistió': return 'off';
-    default:           return 'cy';   /* Programada */
-  }
-}
-/* lista de profesionales conocidos (de notas, admisiones, usuarios y visitas) */
-function domProfesionales(){
-  const set=new Set();
-  store.get('notas',[]).forEach(n=>{ if(n.medico) set.add(n.medico.trim()); });
-  store.get('admisiones',[]).forEach(a=>{ if(a.medico) set.add(a.medico.trim()); });
-  usuarios().forEach(u=>{ if(u.nombre) set.add(u.nombre.trim()); });
-  domVisitas().forEach(v=>{ if(v.medico) set.add(v.medico.trim()); });
-  return Array.from(set).filter(Boolean).sort((a,b)=>a.localeCompare(b,'es'));
-}
-/* llena el filtro de profesional y el datalist del modal */
-function domRefreshMedList(){
-  const profs=domProfesionales();
-  const sel=$('domFMed');
-  if(sel){ const cur=sel.value; sel.innerHTML='<option value="">Todos los profesionales</option>';
-    profs.forEach(p=>{ const o=document.createElement('option'); o.value=p; o.textContent=p; sel.appendChild(o); });
-    sel.value=cur; }
-  const dl=$('medFull');
-  if(dl){ dl.innerHTML=''; profs.forEach(p=>{ const o=document.createElement('option'); o.value=p; dl.appendChild(o); }); }
-}
-/* aplica los filtros de la agenda */
-function domFiltrar(){
-  const est=$('domFEstado')?$('domFEstado').value:'';
-  const med=$('domFMed')?$('domFMed').value:'';
-  const doc=($('domFDoc')?$('domFDoc').value:'').trim();
-  const d1=$('domFD1')?$('domFD1').value:'';
-  const d2=$('domFD2')?$('domFD2').value:'';
-  return domVisitas().filter(v=>{
-    if(est && v.estado!==est) return false;
-    if(med && (v.medico||'')!==med) return false;
-    if(doc && !(String(v.doc||'').includes(doc))) return false;
-    const dia=(v.fecha||'').slice(0,10);
-    if(d1 && dia && dia < d1) return false;
-    if(d2 && dia && dia > d2) return false;
-    return true;
-  }).sort((a,b)=> (b.fecha||'').localeCompare(a.fecha||''));
-}
-function renderDom(){
-  const tb=$('domTb'); if(!tb) return; tb.innerHTML='';
-  const lista=domFiltrar();
-  if($('domCount')) $('domCount').textContent = lista.length + (lista.length===1?' visita':' visitas');
-  if(!lista.length){ const tr=document.createElement('tr'); const c=td('Sin visitas con estos criterios.'); c.colSpan=8; c.className='vacio'; tr.appendChild(c); tb.appendChild(tr); return; }
-  const puedeEditar=can('editar') || (CURRENT && (CURRENT.rol==='maestro'||CURRENT.rol==='admin'));
-  lista.forEach(v=>{
-    const tr=document.createElement('tr');
-    tr.appendChild(td(fmtFecha(v.fecha)));
-    tr.appendChild(td(v.pac));
-    tr.appendChild(td(v.doc));
-    tr.appendChild(td(v.dir));
-    tr.appendChild(td(v.serv));
-    tr.appendChild(td(v.medico));
-    const ce=document.createElement('td'); const pe=document.createElement('span'); pe.className='pill '+domEstadoPill(v.estado); pe.textContent=v.estado||'Programada'; ce.appendChild(pe); tr.appendChild(ce);
-    const acc=document.createElement('td'); acc.className='right';
-    if(v.estado==='Programada'){
-      const bo=document.createElement('button'); bo.className='btn ghost mini'; bo.textContent='Realizada'; bo.style.marginRight='6px';
-      bo.addEventListener('click', ()=> domCambiarEstado(v.id,'Realizada'));
-      acc.appendChild(bo);
-    }
-    const be=document.createElement('button'); be.className='btn ghost mini'; be.textContent='Editar'; be.style.marginRight='6px';
-    be.addEventListener('click', ()=> domAbrirModal(v.id));
-    acc.appendChild(be);
-    if(can('eliminar') || (CURRENT && (CURRENT.rol==='maestro'||CURRENT.rol==='admin'))){
-      const bd=document.createElement('button'); bd.className='btn del mini'; bd.textContent='Eliminar';
-      bd.addEventListener('click', ()=>{ if(confirm('¿Eliminar esta visita domiciliaria?')){ setDomVisitas(domVisitas().filter(x=>x.id!==v.id)); renderDom(); } });
-      acc.appendChild(bd);
-    }
-    tr.appendChild(acc);
-    tb.appendChild(tr);
-  });
-}
-function domCambiarEstado(id, estado){
-  const l=domVisitas(); const r=l.find(x=>x.id===id); if(!r) return;
-  r.estado=estado; r.editadoPor=(CURRENT&&CURRENT.usuario)||''; r.editadoEl=new Date().toISOString();
-  setDomVisitas(l); renderDom();
-}
-
-/* -------- modal de programar / editar -------- */
-let editVisId=null;
-let visPac=null;
-function domResolverPac(){
-  const p=resolverPaciente($('visBuscar').value);
-  visPac=p;
-  if(p){
-    $('visPacNom').value=p.nombre||'—'; $('visPacDoc').value=p.doc;
-    const a=admisionPorDoc(p.doc);
-    if(a){
-      if(!$('visDir').value) $('visDir').value=a.dir||'';
-      if(!$('visTel').value) $('visTel').value=a.tel||'';
-      $('visEps').value=a.eps||'';
-    }
-  } else { $('visPacNom').value=''; $('visPacDoc').value=''; }
-}
-function domAbrirModal(id){
-  if(!can('domiciliaria')){ alert('No tienes permiso para la agenda domiciliaria.'); return; }
-  domRefreshMedList();
-  editVisId=id||null; visPac=null;
-  ['visBuscar','visPacNom','visPacDoc','visDir','visTel','visEps','visObs'].forEach(x=>{ if($(x)) $(x).value=''; });
-  $('visServ').selectedIndex=0; $('visEstado').value='Programada';
-  if(id){
-    const v=domVisitas().find(x=>x.id===id);
-    if(v){
-      $('visTit').textContent='Editar visita domiciliaria';
-      $('visBuscar').value=(v.pac?v.pac+' ':'')+'('+v.doc+')';
-      $('visPacNom').value=v.pac||'—'; $('visPacDoc').value=v.doc||'';
-      $('visDir').value=v.dir||''; $('visTel').value=v.tel||''; $('visEps').value=v.eps||'';
-      $('visFecha').value=isoToLocalInput(v.fecha);
-      $('visServ').value=v.serv||$('visServ').options[0].value;
-      $('visMed').value=v.medico||''; $('visEstado').value=v.estado||'Programada';
-      $('visObs').value=v.obs||'';
-      visPac={doc:v.doc, nombre:v.pac};
-    }
-  } else {
-    $('visTit').textContent='Programar visita domiciliaria';
-    $('visFecha').value=isoToLocalInput(new Date().toISOString());
-  }
-  flash($('visMsg'),'');
-  $('ovVisita').hidden=false;
-}
-function domCerrarModal(){ $('ovVisita').hidden=true; editVisId=null; visPac=null; }
-
-if($('domNueva')) $('domNueva').addEventListener('click', ()=> domAbrirModal(null));
-if($('visX')) $('visX').addEventListener('click', domCerrarModal);
-if($('visCancel')) $('visCancel').addEventListener('click', domCerrarModal);
-if($('visBuscar')){
-  $('visBuscar').addEventListener('change', domResolverPac);
-  $('visBuscar').addEventListener('input', ()=>{ if(resolverPaciente($('visBuscar').value)) domResolverPac(); });
-}
-if($('formVisita')){
-  $('formVisita').addEventListener('submit', (e)=>{
-    e.preventDefault();
-    if(!visPac || !$('visPacDoc').value){ domResolverPac(); }
-    if(!visPac || !$('visPacDoc').value){ flash($('visMsg'),'Seleccione un paciente registrado en Admisión.','err'); return; }
-    if(!$('visFecha').value){ flash($('visMsg'),'Indique la fecha y hora de la visita.','err'); return; }
-    const base={
-      doc:$('visPacDoc').value.trim(), pac:$('visPacNom').value.trim(),
-      dir:$('visDir').value.trim(), tel:$('visTel').value.trim(), eps:$('visEps').value.trim(),
-      fecha:localInputToIso($('visFecha').value), serv:$('visServ').value,
-      medico:$('visMed').value.trim(), estado:$('visEstado').value, obs:$('visObs').value.trim()
-    };
-    const l=domVisitas();
-    if(editVisId){
-      const r=l.find(x=>x.id===editVisId);
-      if(!r){ flash($('visMsg'),'La visita ya no existe.','err'); return; }
-      Object.assign(r, base, { editadoPor:(CURRENT&&CURRENT.usuario)||'', editadoEl:new Date().toISOString() });
-    } else {
-      l.push(Object.assign({ id:uid(), creadoPor:(CURRENT&&CURRENT.usuario)||'', creadoEl:new Date().toISOString() }, base));
-    }
-    setDomVisitas(l);
-    domRefreshMedList(); renderDom();
-    domCerrarModal();
-    flash($('domMsg'), editVisId?'Visita actualizada.':'Visita programada.', 'ok');
-  });
-}
-if($('domFLimpiar')) $('domFLimpiar').addEventListener('click', ()=>{ ['domFEstado','domFMed','domFDoc','domFD1','domFD2'].forEach(x=>{ if($(x)) $(x).value=''; }); renderDom(); });
-['domFEstado','domFMed','domFDoc','domFD1','domFD2'].forEach(id=>{ if($(id)){ $(id).addEventListener('change', renderDom); $(id).addEventListener('input', renderDom); } });
 
 /* ============================================================
    CALENDARIO EMERGENTE · con botón "Aceptar" para salir

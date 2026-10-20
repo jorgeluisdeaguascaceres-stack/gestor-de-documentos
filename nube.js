@@ -9,7 +9,7 @@
 
   var $ = function(id){ return document.getElementById(id); };
   var CFG_KEY = 'nxm_cloud_cfg';
-  var SYNC_KEYS = ['usuarios','admisiones','notas','ips','eps','visitas'];
+  var SYNC_KEYS = ['usuarios','admisiones','notas','ips','eps'];
   var sb = null;          // cliente supabase
   var cfg = null;         // {url, anon}
   var pulling = false;    // evita bucles al recibir datos de la nube
