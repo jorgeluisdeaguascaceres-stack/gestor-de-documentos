@@ -27,6 +27,9 @@
   function setNube(cls, texto){
     var e = document.getElementById('nubeEstado');
     if(!e) return;
+    /* Cuando la nube funciona, no se muestra ningún aviso: pantalla limpia. */
+    if(cls === 'nube-ok'){ e.hidden = true; e.textContent = ''; return; }
+    e.hidden = false;
     e.className = 'nube-estado ' + cls;
     e.textContent = texto;
   }
@@ -49,25 +52,53 @@
     }catch(e){ return null; }
   }
 
+  /* Sube local -> nube cuando la nube NO tiene todavía ese dato (siembra).
+     Sirve para que, al activar la nube, el usuario maestro (y demás datos)
+     que ya existían en ESTE dispositivo suban solos y los vean los demás. */
+  function sembrarEnNube(cloudKeys){
+    if(!sb) return;
+    SYNC_KEYS.forEach(function(key){
+      if(cloudKeys.indexOf(key) >= 0) return;   /* la nube ya lo tiene: no tocar */
+      var local = null;
+      try{ local = store.get(key, null); }catch(e){ local = null; }
+      var vacio = (local == null) ||
+                  (Array.isArray(local) && local.length === 0) ||
+                  (typeof local === 'object' && !Array.isArray(local) && Object.keys(local).length === 0);
+      if(vacio) return;
+      try{
+        sb.from('app_state')
+          .upsert({ key:key, data:local, updated_at:new Date().toISOString() }, { onConflict:'key' })
+          .then(function(){}, function(){});
+      }catch(e){}
+    });
+  }
+
   /* Descarga el estado compartido de la nube hacia este dispositivo */
   function syncPull(cb){
     if(!sb){ if(cb) cb(); return; }
     pulling = true;
     sb.from('app_state').select('key,data').then(function(res){
+      var cloudKeys = [];
       try{
         if(res && res.error){
-          setNube('nube-off', '⚠ Sin nube: no se pudo leer la base compartida. Los datos NO se comparten entre dispositivos todavía.');
+          setNube('nube-off', 'Aún no se comparten los usuarios entre dispositivos. Falta activar la nube una sola vez.');
         }else if(res && res.data){
           res.data.forEach(function(row){
             if(SYNC_KEYS.indexOf(row.key) >= 0 && row.data != null){
+              cloudKeys.push(row.key);
               try{ store.setSilent(row.key, row.data); }catch(e){}
             }
           });
           setNube('nube-ok', '☁ Nube conectada · los usuarios y datos se comparten entre todos los dispositivos.');
         }
-      }finally{ pulling = false; if(cb) cb(); }
+      }finally{
+        pulling = false;
+        /* la nube respondió bien: sembrar lo que falte desde este dispositivo */
+        if(!(res && res.error)){ try{ sembrarEnNube(cloudKeys); }catch(e){} }
+        if(cb) cb();
+      }
     }, function(){
-      setNube('nube-off', '⚠ Sin nube: no hay conexión con la base compartida. Revise el internet o la configuración de la nube.');
+      setNube('nube-off', 'Sin conexión a internet con la nube. Verifique su conexión.');
       pulling = false; if(cb) cb();
     });
   }
@@ -114,7 +145,7 @@
   function arranque(){
     limpiarUInube();
     sb = crearCliente();
-    if(!sb){ setNube('nube-off', '⚠ Sin nube: este dispositivo trabaja solo. Los usuarios y datos NO se comparten con otros equipos.'); bootApp(); return; }   /* sin librería de nube: arranca en modo local */
+    if(!sb){ setNube('nube-off', 'Este dispositivo trabaja solo. Falta activar la nube para compartir usuarios y datos.'); bootApp(); return; }   /* sin librería de nube: arranca en modo local */
     /* 1) descargar datos compartidos  2) escuchar cambios en vivo  3) iniciar la app */
     syncPull(function(){ suscribirRealtime(); bootApp(); if(typeof window.__refreshGate === 'function') window.__refreshGate(); });
     /* seguro: si la descarga tarda demasiado, arranca de todos modos a los 6 s */
