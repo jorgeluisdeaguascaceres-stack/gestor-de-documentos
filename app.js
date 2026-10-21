@@ -600,14 +600,14 @@ function consultaPDF(){
   /* nota sintética: reutiliza el mismo encabezado + ficha de paciente
      (desde la admisión) que la historia clínica; sin firma única. */
   const synth={ doc:doc, pac:nombre, fecha:new Date().toISOString(), medico:(med||''), firma:'' };
-  const { d } = construirDoc(synth, 'Reporte de servicios clínicos', (ctx)=>{
+  const { d } = construirDoc(synth, 'Reporte de servicios clínicos domiciliarios', (ctx)=>{
     ctx.band('Parámetros del reporte');
     ctx.campo('Rango', (d1||d2) ? ((d1||'inicio')+' a '+(d2||'hoy')) : 'Todas las fechas');
     ctx.campo('Servicio', serv||'Todos');
     ctx.campo('Profesional', med||'Todos');
     ctx.campo('Total', csResultados.length+' registro(s)');
     csResultados.forEach((n,i)=>{
-      ctx.band((i+1)+'. '+(n.tipo||'Registro clínico'));
+      ctx.band((i+1)+'. '+(n.tipo||'Registro clínico')+' – Domiciliaria');
       ctx.campo('Fecha', fmtFecha(n.fecha));
       ctx.campo('Profesional', n.medico||'—');
       if(n.especialidad){ ctx.campo('Especialidad', n.especialidad); }
@@ -793,7 +793,7 @@ function nombreArchivo(prefijo, note, nombre){
 /* genera SOLO la historia clínica */
 function generarHistoria(note){
   const hc=note.hc||{};
-  const g=construirDoc(note, 'Historia clínica – Consulta externa', (ctx)=> cuerpoHistoria(ctx, hc));
+  const g=construirDoc(note, 'Historia clínica – Consulta externa domiciliaria', (ctx)=> cuerpoHistoria(ctx, hc));
   g.d.save(nombreArchivo('historia_clinica', note, g.nombre));
 }
 /* genera un documento aparte (paraclínicos / orden / fórmula) */
@@ -858,7 +858,7 @@ function hcPreview(id){
   const acts=$('prevActions'); acts.innerHTML='';
 
   // tarjeta historia clínica
-  docs.appendChild(prevTarjeta('Historia clínica – Consulta externa', nombre, n, (card)=>{
+  docs.appendChild(prevTarjeta('Historia clínica – Consulta externa domiciliaria', nombre, n, (card)=>{
     prevSeccion(card,'Motivo', hc.hcMotivo);
     prevSeccion(card,'Enfermedad actual', hc.hcEnf);
     const vit=[['TA',hc.hcTA],['FC',hc.hcFC],['FR',hc.hcFR],['Temp',hc.hcT],['SatO2',hc.hcSat],['Peso',hc.hcPeso],['Talla',hc.hcTalla],['IMC',hc.hcIMC]];
