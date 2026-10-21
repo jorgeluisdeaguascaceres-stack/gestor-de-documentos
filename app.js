@@ -813,7 +813,7 @@ function nombreArchivo(prefijo, note, nombre){
 /* genera SOLO la historia clínica */
 function generarHistoria(note){
   const hc=note.hc||{};
-  const g=construirDoc(note, 'Historia clínica – Consulta externa domiciliaria', (ctx)=> cuerpoHistoria(ctx, hc));
+  const g=construirDoc(note, 'Historia clínica – Consulta domiciliaria', (ctx)=> cuerpoHistoria(ctx, hc));
   g.d.save(nombreArchivo('historia_clinica', note, g.nombre));
 }
 /* genera un documento aparte (paraclínicos / orden / fórmula) */
@@ -878,7 +878,7 @@ function hcPreview(id){
   const acts=$('prevActions'); acts.innerHTML='';
 
   // tarjeta historia clínica
-  docs.appendChild(prevTarjeta('Historia clínica – Consulta externa domiciliaria', nombre, n, (card)=>{
+  docs.appendChild(prevTarjeta('Historia clínica – Consulta domiciliaria', nombre, n, (card)=>{
     prevSeccion(card,'Motivo', hc.hcMotivo);
     prevSeccion(card,'Enfermedad actual', hc.hcEnf);
     const vit=[['TA',hc.hcTA],['FC',hc.hcFC],['FR',hc.hcFR],['Temp',hc.hcT],['SatO2',hc.hcSat],['Peso',hc.hcPeso],['Talla',hc.hcTalla],['IMC',hc.hcIMC]];
