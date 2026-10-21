@@ -20,7 +20,17 @@ function fmtFecha(iso){
   if(isNaN(d)) return iso;
   return d.toLocaleString('es-CO',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
 }
-/* crea celda segura (texto, nunca HTML) */
+/* calcula la edad (en años) a partir de la fecha de nacimiento, referida a la fecha de atención (o a hoy) */
+function edadAnios(nacIso, refIso){
+  if(!nacIso) return '';
+  const n = new Date(nacIso); if(isNaN(n)) return '';
+  const r = refIso ? new Date(refIso) : new Date(); if(isNaN(r)) return '';
+  let e = r.getFullYear() - n.getFullYear();
+  const m = r.getMonth() - n.getMonth();
+  if(m < 0 || (m === 0 && r.getDate() < n.getDate())) e--;
+  if(e < 0 || e > 130) return '';
+  return e + (e===1 ? ' año' : ' años');
+}
 function td(text, cls){ const c=document.createElement('td'); if(cls)c.className=cls; c.textContent=(text==null||text==='')?'—':String(text); return c; }
 /* ISO -> valor de <input datetime-local> (hora local) y viceversa */
 function isoToLocalInput(iso){ const d=iso?new Date(iso):new Date(); if(isNaN(d)) return ''; const t=new Date(d.getTime()-d.getTimezoneOffset()*60000); return t.toISOString().slice(0,16); }
@@ -742,8 +752,9 @@ function construirDoc(note, titulo, drawBody, opts){
   par(colL,'Paciente',nombre); par(colR,'Documento',tipoDoc+(note.doc||'')); y+=13;
   par(colL,'Sexo',a.sexo||'—'); par(colR,'Fecha nac.',a.nac||'—'); y+=13;
   par(colL,'Dirección',a.dir||'—'); par(colR,'Teléfono',a.tel||'—'); y+=13;
-  par(colL,'EPS / Aseguradora',a.eps||'—'); par(colR,'Régimen',a.regimen||'—'); y+=13;
-  par(colL,'Fecha de atención',fmtFecha(note.fecha)); par(colR,'Profesional',note.medico||'—'); y+=6;
+  par(colL,'Empresa',a.eps||'—'); par(colR,'Régimen',a.regimen||'—'); y+=13;
+  var _edad=edadAnios(a.nac, note.fecha);
+  par(colL,'Fecha de atención', fmtFecha(note.fecha) + (_edad ? ('   ·   Edad: '+_edad) : '')); par(colR,'Profesional',note.medico||'—'); y+=6;
   d.setDrawColor(LINEA[0],LINEA[1],LINEA[2]); d.setLineWidth(0.8);
   d.rect(ml, boxTop, ancho, y-boxTop);
   y+=8;
