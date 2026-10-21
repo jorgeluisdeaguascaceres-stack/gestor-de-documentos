@@ -251,3 +251,9 @@ td.cellwrap{white-space:normal;max-width:360px;line-height:1.4;color:var(--txt)}
 .cal-day.sel{background:linear-gradient(160deg,#13344d,#0f2638);border-color:var(--acc);color:var(--acc)}
 .cal-foot{display:flex;gap:8px;margin-top:11px}
 .cal-foot .btn{flex:1 1 auto;padding:9px 12px}
+
+/* Estado de la nube en la pantalla de inicio (sincronización entre dispositivos) */
+.nube-estado{margin:2px 0 14px;padding:8px 12px;border-radius:10px;font-size:12.5px;line-height:1.35;text-align:center;border:1px solid transparent}
+.nube-estado.nube-check{background:rgba(120,135,150,.12);color:#9fb0c0;border-color:rgba(120,135,150,.25)}
+.nube-estado.nube-ok{background:rgba(45,212,191,.12);color:#2dd4bf;border-color:rgba(45,212,191,.35)}
+.nube-estado.nube-off{background:rgba(255,170,60,.12);color:#ffb84d;border-color:rgba(255,170,60,.4)}

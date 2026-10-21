@@ -612,7 +612,11 @@ function consultaPDF(){
       ctx.campo('Profesional', n.medico||'—');
       if(n.especialidad){ ctx.campo('Especialidad', n.especialidad); }
       if(n.registro){ ctx.campo('Registro médico', n.registro); }
-      ctx.campo('Contenido', (n.texto&&n.texto.trim())?n.texto:'(sin contenido)');
+      /* Historia clínica: imprimir el cuerpo COMPLETO (Motivo → Plan),
+         es la que se envía a la EPS para el cobro. El resto de notas
+         conservan el resumen de texto. */
+      if(esHC(n.tipo)){ cuerpoHistoria(ctx, n.hc||{}); }
+      else { ctx.campo('Contenido', (n.texto&&n.texto.trim())?n.texto:'(sin contenido)'); }
     });
   }, { sinFirma:true });
   const safe=(nombre||'paciente').replace(/[^a-z0-9]+/gi,'_').replace(/^_+|_+$/g,'').toLowerCase();
@@ -1360,4 +1364,14 @@ function init(){
    llama a window.__startApp() para mostrar el inicio de sesión (usuario + clave).
    Si no hay nube disponible, la app arranca sola en el siguiente ciclo. */
 window.__startApp = init;
+/* La nube llama a esto cuando llegan datos compartidos (descarga tardía o
+   cambio en vivo de otro dispositivo) y AÚN no se ha iniciado sesión: así la
+   pantalla pasa sola de "Crear usuario maestro" a "Iniciar sesión" en cuanto el
+   maestro ya existe en la nube, sin tener que recargar. */
+window.__refreshGate = function(){
+  try{
+    if(typeof CURRENT !== 'undefined' && CURRENT) return;   /* ya hay sesión */
+    var g=$('gate'); if(g && !g.hidden){ mostrarGate(); }
+  }catch(e){}
+};
 setTimeout(function(){ if(!window.__cloudWillBoot){ init(); } }, 0);
