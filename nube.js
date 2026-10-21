@@ -125,7 +125,8 @@
             pulling = true;
             try{ store.setSilent(row.key, row.data); } finally { pulling = false; }
             try{
-              if(typeof CURRENT !== 'undefined' && CURRENT && typeof entrar === 'function'){ entrar(CURRENT); }
+              if(typeof window.__refreshData === 'function'){ window.__refreshData(); }
+              else if(typeof CURRENT !== 'undefined' && CURRENT && typeof entrar === 'function'){ entrar(CURRENT); }
               else if(typeof window.__refreshGate === 'function'){ window.__refreshGate(); }
             }catch(e){}
           }

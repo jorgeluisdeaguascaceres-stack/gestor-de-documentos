@@ -126,6 +126,22 @@ function entrar(u){
   if(can('config')){ renderUsr(); renderCrear(); renderUsrList(); renderEps(); segInfo(); }
   goView('home');
 }
+/* Refresca datos y tablas SIN cambiar de pantalla ni mover el scroll.
+   Lo usa la nube cuando llega un cambio en vivo: así el usuario se queda
+   justo donde estaba (no lo devuelve al inicio al crear/eliminar). No toca
+   los formularios en curso (no llama renderCrear ni regMostrarTipos). */
+function refrescarDatos(){
+  if(!CURRENT) return;
+  try{ const u=usuarios().find(x=>x.id===CURRENT.id); if(u){ CURRENT=u; } }catch(e){}
+  try{ aplicarPermisos(); }catch(e){}
+  try{ renderAdm(); }catch(e){}
+  try{ refreshPacList(); }catch(e){}
+  try{ refreshMedList(); }catch(e){}
+  try{ if(typeof renderReg==='function') renderReg(); }catch(e){}
+  try{ epsRefrescarDatalist(); }catch(e){}
+  try{ if(can('config')){ renderUsr(); renderUsrList(); renderEps(); } }catch(e){}
+}
+window.__refreshData = refrescarDatos;
 function salir(){ store.set('sesion', null); CURRENT=null; mostrarGate(); }
 function aplicarPermisos(){
   document.querySelectorAll('.modcard').forEach(c=>{ c.style.display = can(c.getAttribute('data-view')) ? '' : 'none'; });
