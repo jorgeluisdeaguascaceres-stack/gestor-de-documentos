@@ -392,16 +392,17 @@ function renderReg(){
   if(regPac){ lista=store.get('notas',[]).filter(n=> (n.doc||'').trim()===regPac.doc && n.tipo===regTipo); }
   lista.sort((a,b)=> (b.fecha||'').localeCompare(a.fecha||''));
   $('regCount').textContent = lista.length + (lista.length===1?' registro':' registros');
-  if(!regPac){ const tr=document.createElement('tr'); const c=td('Busque un paciente para ver sus notas.'); c.colSpan=5; c.className='vacio'; tr.appendChild(c); tb.appendChild(tr); return; }
-  if(!lista.length){ const tr=document.createElement('tr'); const c=td('Este paciente aún no tiene notas de este tipo.'); c.colSpan=5; c.className='vacio'; tr.appendChild(c); tb.appendChild(tr); return; }
+  if(!regPac){ const tr=document.createElement('tr'); const c=td('Busque un paciente para ver sus notas.'); c.colSpan=4; c.className='vacio'; tr.appendChild(c); tb.appendChild(tr); return; }
+  if(!lista.length){ const tr=document.createElement('tr'); const c=td('Este paciente aún no tiene notas de este tipo.'); c.colSpan=4; c.className='vacio'; tr.appendChild(c); tb.appendChild(tr); return; }
   lista.forEach(n=>{
     const tr=document.createElement('tr');
     tr.appendChild(td(fmtFecha(n.fecha)));
     const tt=document.createElement('td'); const p=document.createElement('span'); p.className='pill cy'; p.textContent=n.tipo; tt.appendChild(p); tr.appendChild(tt);
     tr.appendChild(td(n.medico));
-    const ct=document.createElement('td'); ct.className='cellwrap'; ct.textContent=n.texto||'—'; tr.appendChild(ct);
     const acc=document.createElement('td'); acc.className='right';
-    const puede=puedeCrear(n.tipo);
+    /* Editar: con permiso 'editar' puede editar cualquier nota; sin ese permiso, solo el autor puede editar la suya */
+    const esAutor = (n.creadoPor||'') === ((CURRENT&&CURRENT.usuario)||'');
+    const puede = can('editar') || esAutor;
     let primero=true;
     const sep=(el)=>{ if(!primero) el.style.marginLeft='6px'; primero=false; acc.appendChild(el); };
     /* Editar: solo si el perfil puede crear/editar este tipo */
@@ -520,7 +521,14 @@ $('formNota').addEventListener('submit', (e)=>{
   e.preventDefault();
   const tipo=$('ntTipo').value;
   if(soloLectura){ cerrarNota(); return; }
-  if(!puedeCrear(tipo)){ flash($('ntMsg'),'No tiene permiso para crear o editar este tipo de nota.','err'); return; }
+  if(editNotaId){
+    /* Editar: con permiso 'editar' cualquier nota; sin ese permiso, solo el autor puede editar la suya */
+    const _l=store.get('notas',[]); const _n=_l.find(x=>x.id===editNotaId);
+    const _esAutor = _n && ((_n.creadoPor||'')===((CURRENT&&CURRENT.usuario)||''));
+    if(!(can('editar')||_esAutor)){ flash($('ntMsg'),'Solo el autor de la nota o un usuario con permiso de edición puede modificarla.','err'); return; }
+  } else {
+    if(!puedeCrear(tipo)){ flash($('ntMsg'),'No tiene permiso para crear este tipo de nota.','err'); return; }
+  }
   let texto, hc=null;
   if(esHC(tipo)){
     hc=hcCollect();
