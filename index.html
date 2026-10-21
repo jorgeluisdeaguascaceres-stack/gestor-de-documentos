@@ -256,7 +256,7 @@
                 <div id="nuEmailWrap" hidden><label class="req">Correo electrónico</label><input id="nuEmail" type="email" placeholder="medico@correo.com"></div>
                 <div><label>Número de documento</label><input id="nuDoc" inputmode="numeric" placeholder="C.C. 1010101010"></div>
                 <div class="wide"><label>Nombre completo del profesional</label><input id="nuNombre" placeholder="Dr(a). Nombre Apellido"></div>
-                <div><label class="req">Contraseña</label><input id="nuClave" type="password" placeholder="mínimo 8"></div>
+                <div><label class="req">Contraseña</label><input id="nuClave" type="password" placeholder="mínimo 5"></div>
                 <div><label>Rol</label><select id="nuRol"><option value="administrativo">Administrativo (admisiones)</option><option value="medico">Médico (registro clínico)</option><option value="auxiliar">Auxiliar de enfermería (notas de enfermería)</option><option value="admin">Administrador (admisión + registro)</option></select></div>
                 <div><label>Registro profesional</label><input id="nuRegistro" placeholder="RM-12345"></div>
                 <div><label>Especialidad / área</label><select id="nuEspec"></select></div>
@@ -367,11 +367,11 @@
         <div class="cfgpane" id="cfg-seguridad" hidden>
           <div class="panel">
             <h3>Cambiar mi contraseña</h3>
-            <p class="hint">Cambie la contraseña de <b id="segUser">su usuario</b>. Debe tener mínimo 8 caracteres e incluir letras y números.</p>
+            <p class="hint">Cambie la contraseña de <b id="segUser">su usuario</b>. Debe tener mínimo 5 caracteres (pueden ser solo números o solo letras).</p>
             <form id="formPwd" autocomplete="off">
               <div class="grid">
                 <div><label class="req">Contraseña actual</label><input id="pwActual" type="password" placeholder="••••••••"></div>
-                <div><label class="req">Nueva contraseña</label><input id="pwNueva" type="password" placeholder="mínimo 8"></div>
+                <div><label class="req">Nueva contraseña</label><input id="pwNueva" type="password" placeholder="mínimo 5"></div>
                 <div><label class="req">Repetir nueva contraseña</label><input id="pwNueva2" type="password" placeholder="repetir"></div>
               </div>
               <div class="actions"><button class="btn" type="submit">Actualizar contraseña</button><span class="msg" id="pwMsg"></span></div>
@@ -550,7 +550,7 @@
         <div class="gfield"><label>Contraseña actual</label>
           <div class="pwrow"><input id="cbActual" type="password" placeholder="••••••••"><button class="btn ghost mini" id="btnVerCb" type="button">Ver</button></div>
         </div>
-        <div class="gfield"><label>Nueva contraseña (mínimo 8, con letras y números)</label><input id="cbNueva" type="password" placeholder="••••••••"></div>
+        <div class="gfield"><label>Nueva contraseña (mínimo 5 caracteres)</label><input id="cbNueva" type="password" placeholder="•••••"></div>
         <div class="gfield"><label>Repita la nueva contraseña</label><input id="cbNueva2" type="password" placeholder="••••••••"></div>
         <button class="btn" id="btnCambio" type="submit" style="width:100%">Cambiar contraseña</button>
       </form>
@@ -564,7 +564,7 @@
       <p class="gsub">Es la primera vez que se usa el sistema. Cree el <b>usuario maestro</b>: será el único con acceso a Configuraciones.</p>
       <form id="formAlta" autocomplete="off">
         <div class="gfield"><label>Usuario</label><input id="altaUsuario" placeholder="jorge.deaguas"></div>
-        <div class="gfield"><label>Contraseña (mínimo 8, con letras y números)</label><input id="altaClave" type="password" placeholder="••••••••"></div>
+        <div class="gfield"><label>Contraseña (mínimo 5 caracteres)</label><input id="altaClave" type="password" placeholder="•••••"></div>
         <div class="gfield"><label>Repita la contraseña</label><input id="altaClave2" type="password" placeholder="••••••••"></div>
         <button class="btn" id="btnAlta" type="submit" style="width:100%">Crear y entrar</button>
       </form>

@@ -145,7 +145,7 @@ $('btnVer').addEventListener('click', ()=>{ const i=$('inClave'); i.type = i.typ
 $('formAlta').addEventListener('submit', async (e)=>{ e.preventDefault();
   const usuario=$('altaUsuario').value.trim().toLowerCase(), c1=$('altaClave').value, c2=$('altaClave2').value;
   if(!/^[a-z0-9._-]{3,}$/.test(usuario)){ flash($('msgAlta'),'Usuario inválido (letras, números, punto, guion).','err'); return; }
-  if(c1.length<8 || !/[a-z]/i.test(c1) || !/[0-9]/.test(c1)){ flash($('msgAlta'),'La contraseña debe tener 8+ caracteres con letras y números.','err'); return; }
+  if(c1.length<5){ flash($('msgAlta'),'La contraseña debe tener al menos 5 caracteres.','err'); return; }
   if(c1!==c2){ flash($('msgAlta'),'Las contraseñas no coinciden.','err'); return; }
   const h = await hashPwd(c1);
   const maestro = { id:uid(), usuario, rol:'maestro', activo:true, ultimo:new Date().toISOString(), salt:h.salt, hash:h.hash, perms:defaultPerms('maestro') };
@@ -179,7 +179,7 @@ if($('formCambio')){
     if(!u || !u.hash){ flash($('msgCambio'),'Usuario o contraseña actual incorrectos.','err'); return; }
     const chk=await hashPwd(act, u.salt);
     if(chk.hash!==u.hash){ flash($('msgCambio'),'Usuario o contraseña actual incorrectos.','err'); return; }
-    if(n1.length<8 || !/[a-z]/i.test(n1) || !/[0-9]/.test(n1)){ flash($('msgCambio'),'La nueva contraseña debe tener 8+ caracteres con letras y números.','err'); return; }
+    if(n1.length<5){ flash($('msgCambio'),'La nueva contraseña debe tener al menos 5 caracteres.','err'); return; }
     if(n1!==n2){ flash($('msgCambio'),'Las nuevas contraseñas no coinciden.','err'); return; }
     if(n1===act){ flash($('msgCambio'),'La nueva contraseña debe ser distinta a la actual.','err'); return; }
     const h=await hashPwd(n1);
@@ -1156,7 +1156,7 @@ $('formUsr').addEventListener('submit', async (e)=>{
   const usuario=$('nuUsuario').value.trim().toLowerCase(), clave=$('nuClave').value, rol=$('nuRol').value;
   const nombre=$('nuNombre').value.trim(), docn=$('nuDoc').value.trim(), registro=$('nuRegistro').value.trim(), especialidad=$('nuEspec').value;
   if(!/^[a-z0-9._-]{3,}$/.test(usuario)){ flash($('usrMsg'),'Usuario inválido (letras, números, punto, guion).','err'); return; }
-  if(clave.length<8 || !/[a-z]/i.test(clave) || !/[0-9]/.test(clave)){ flash($('usrMsg'),'La contraseña debe tener 8+ caracteres con letras y números.','err'); return; }
+  if(clave.length<5){ flash($('usrMsg'),'La contraseña debe tener al menos 5 caracteres.','err'); return; }
   if(usuarios().some(x=>x.usuario===usuario)){ flash($('usrMsg'),'Ese usuario ya existe.','err'); return; }
   const h = await hashPwd(clave);
   const nuevo = { id:uid(), usuario, nombre, doc:docn, registro, especialidad, firma:nuFirmaData||'', rol, activo:true, ultimo:null, salt:h.salt, hash:h.hash, perms:defaultPerms(rol) };
@@ -1180,7 +1180,7 @@ if($('formPwd')){
     const act=$('pwActual').value, n1=$('pwNueva').value, n2=$('pwNueva2').value;
     const chk=await hashPwd(act, u.salt);
     if(chk.hash!==u.hash){ flash($('pwMsg'),'La contraseña actual no es correcta.','err'); return; }
-    if(n1.length<8 || !/[a-z]/i.test(n1) || !/[0-9]/.test(n1)){ flash($('pwMsg'),'La nueva contraseña debe tener 8+ caracteres con letras y números.','err'); return; }
+    if(n1.length<5){ flash($('pwMsg'),'La nueva contraseña debe tener al menos 5 caracteres.','err'); return; }
     if(n1!==n2){ flash($('pwMsg'),'Las nuevas contraseñas no coinciden.','err'); return; }
     if(n1===act){ flash($('pwMsg'),'La nueva contraseña debe ser distinta a la actual.','err'); return; }
     const h=await hashPwd(n1);
