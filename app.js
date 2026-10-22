@@ -89,6 +89,22 @@ async function hashPwd(pwd, saltHex){
 }
 function usuarios(){ return store.get('usuarios', []); }
 function setUsuarios(l){ store.set('usuarios', l); }
+/* Devuelve la imagen (dataURL) de firma/sello que debe salir en el PDF de una
+   nota. Prioridad: 1) la imagen guardada EN la nota; 2) la firma ACTUAL del
+   profesional que la creo/firmo (buscada por usuario, registro o nombre). Asi
+   el sello sale en TODOS los registros apenas el profesional sube su sello. */
+function resolverFirma(n){
+  try{
+    if(n && n.firma && /^data:image\/(png|jpeg)/.test(n.firma)) return n.firma;
+    const list = usuarios();
+    let u = null;
+    if(n && n.creadoPor){ u = list.find(x=> (x.usuario||'').toLowerCase() === String(n.creadoPor).toLowerCase() && x.firma); }
+    if(!u && n && n.registro){ u = list.find(x=> (x.registro||'') && String(x.registro)===String(n.registro) && x.firma); }
+    if(!u && n && n.medico){ u = list.find(x=> x.firma && ((x.nombre||'')===n.medico || (x.usuario||'').toLowerCase()===String(n.medico).toLowerCase())); }
+    if(u && u.firma && /^data:image\/(png|jpeg)/.test(u.firma)) return u.firma;
+  }catch(_){}
+  return (n && n.firma) || '';
+}
 function necesitaMaestro(){ const l=usuarios(); return l.length===0 || !l.some(u=>u.rol==='maestro' && u.hash); }
 function sesionUser(){ const s=store.get('sesion',null); if(!s) return null; const u=usuarios().find(x=>x.usuario===s.usuario); return (u && u.activo && u.hash)?u:null; }
 let CURRENT = null;
@@ -798,12 +814,17 @@ function construirDoc(note, titulo, drawBody, opts){
     n=n||note;
     nl(82); y+=16;
     const fx=ml+4;
-    if(n.firma && /^data:image\/(png|jpeg)/.test(n.firma)){
+    /* Imagen de firma/sello: si la nota no trae su propia imagen (p. ej. se
+       creo antes de cargar el sello), se busca la firma ACTUAL del profesional
+       que la firmo en la lista de usuarios. Asi el sello sale IGUAL en TODOS
+       los registros una vez el profesional sube su firma/sello al perfil. */
+    const imgFirma = resolverFirma(n);
+    if(imgFirma && /^data:image\/(png|jpeg)/.test(imgFirma)){
       try{
-        const fmt=/^data:image\/png/.test(n.firma)?'PNG':'JPEG';
+        const fmt=/^data:image\/png/.test(imgFirma)?'PNG':'JPEG';
         let fw=150, fh=52;
-        try{ const pr=d.getImageProperties(n.firma); if(pr&&pr.width&&pr.height){ fh=Math.min(56, fw*pr.height/pr.width); } }catch(_){}
-        d.addImage(n.firma, fmt, fx, y-fh, fw, fh);
+        try{ const pr=d.getImageProperties(imgFirma); if(pr&&pr.width&&pr.height){ fh=Math.min(56, fw*pr.height/pr.width); } }catch(_){}
+        d.addImage(imgFirma, fmt, fx, y-fh, fw, fh);
       }catch(_){ }
     }
     d.setDrawColor(INK[0],INK[1],INK[2]); d.setLineWidth(0.8); d.line(fx, y, fx+220, y); y+=12;
