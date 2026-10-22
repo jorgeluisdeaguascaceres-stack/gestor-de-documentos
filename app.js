@@ -568,7 +568,17 @@ $('formNota').addEventListener('submit', (e)=>{
    MÓDULO · CONSULTA (búsqueda por documento + exportar PDF)
    ============================================================ */
 let csResultados = [];
-function fechaSoloDia(iso){ return (iso||'').slice(0,10); }
+function fechaSoloDia(iso){
+  /* Devuelve el día (YYYY-MM-DD) en la HORA LOCAL del equipo, no en UTC.
+     Antes se cortaba el ISO en UTC: una nota creada de noche (p. ej. 11:15 p.m.
+     en Colombia, UTC-5) quedaba guardada como el día siguiente en UTC y el
+     filtro por fecha la dejaba fuera del rango. */
+  if(!iso) return '';
+  const d = new Date(iso);
+  if(isNaN(d)) return (iso||'').slice(0,10);
+  const t = new Date(d.getTime() - d.getTimezoneOffset()*60000);
+  return t.toISOString().slice(0,10);
+}
 function consultaFiltrar(){
   const doc=$('csDoc').value.trim();
   const serv=$('csServ').value;
