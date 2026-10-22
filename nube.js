@@ -9,6 +9,13 @@
 
   var $ = function(id){ return document.getElementById(id); };
   var CFG_KEY = 'nxm_cloud_cfg';
+  // Nube por defecto: hace que CUALQUIER navegador/dispositivo use la misma base
+  // Supabase automaticamente (sin pedir "crear usuario maestro" en cada equipo).
+  // La clave publishable es publica (va en el frontend); NUNCA poner la secret aqui.
+  var DEFAULT_CFG = {
+    url: 'https://bfmugufoxxrhagthoecp.supabase.co',
+    anon: 'sb_publishable_g7nEnLljj_9LOtvRbayZ-Q_IrhOFVVS'
+  };
   var SYNC_KEYS = ['usuarios','admisiones','notas','ips','eps'];
   var sb = null;          // cliente supabase
   var cfg = null;         // {url, anon}
@@ -23,7 +30,13 @@
   function show(id, on){ var e=$(id); if(e) e.hidden = !on; }
 
   function leerCfg(){
-    try{ return JSON.parse(localStorage.getItem(CFG_KEY)); }catch(e){ return null; }
+    try{
+      var c = JSON.parse(localStorage.getItem(CFG_KEY));
+      if(c && c.url && c.anon){ return c; }
+    }catch(e){}
+    // Respaldo: si no hay config guardada, usar la nube por defecto embebida
+    if(DEFAULT_CFG && DEFAULT_CFG.url && DEFAULT_CFG.anon){ return DEFAULT_CFG; }
+    return null;
   }
   function guardarCfg(c){ localStorage.setItem(CFG_KEY, JSON.stringify(c)); }
   function borrarCfg(){ localStorage.removeItem(CFG_KEY); }
