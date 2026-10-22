@@ -812,20 +812,29 @@ function construirDoc(note, titulo, drawBody, opts){
      reporte que se envia a la EPS (auxiliar, medico, terapeuta, etc.). */
   function firmaBloque(n){
     n=n||note;
-    nl(82); y+=16;
     const fx=ml+4;
     /* Imagen de firma/sello: si la nota no trae su propia imagen (p. ej. se
        creo antes de cargar el sello), se busca la firma ACTUAL del profesional
        que la firmo en la lista de usuarios. Asi el sello sale IGUAL en TODOS
        los registros una vez el profesional sube su firma/sello al perfil. */
     const imgFirma = resolverFirma(n);
+    let fw=140, fh=0, fmt='PNG';
     if(imgFirma && /^data:image\/(png|jpeg)/.test(imgFirma)){
-      try{
-        const fmt=/^data:image\/png/.test(imgFirma)?'PNG':'JPEG';
-        let fw=150, fh=52;
-        try{ const pr=d.getImageProperties(imgFirma); if(pr&&pr.width&&pr.height){ fh=Math.min(56, fw*pr.height/pr.width); } }catch(_){}
-        d.addImage(imgFirma, fmt, fx, y-fh, fw, fh);
-      }catch(_){ }
+      fmt=/^data:image\/png/.test(imgFirma)?'PNG':'JPEG';
+      fh=46;
+      try{ const pr=d.getImageProperties(imgFirma); if(pr&&pr.width&&pr.height){ fh=Math.min(50, fw*pr.height/pr.width); } }catch(_){ }
+    }
+    /* Espacio exacto que necesita el bloque: respiro + imagen + linea de firma
+       + nombre + (especialidad) + (registro/sello). Asi NO se monta sobre el
+       texto anterior y NO deja huecos grandes: solo salta de pagina si de
+       verdad no cabe completo. */
+    const altoTexto = 12 + (n.especialidad?11:0) + 11 + 6;
+    const need = 14 + (fh?fh+6:0) + 12 + altoTexto;
+    nl(need);
+    y+=14;
+    if(fh){
+      try{ d.addImage(imgFirma, fmt, fx, y, fw, fh); }catch(_){ }
+      y += fh + 6;
     }
     d.setDrawColor(INK[0],INK[1],INK[2]); d.setLineWidth(0.8); d.line(fx, y, fx+220, y); y+=12;
     d.setFont('helvetica','bold'); d.setFontSize(9.5); d.setTextColor(INK[0],INK[1],INK[2]);
