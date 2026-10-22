@@ -735,7 +735,7 @@ function construirDoc(note, titulo, drawBody, opts){
   function nl(h){ if(y+h > ph-56){ d.addPage(); y=mt; } }
   function band(titulo){
     nl(26); y+=4;
-    d.setFillColor(11,22,34); d.setDrawColor(11,22,34);
+    d.setFillColor(96,102,110); d.setDrawColor(96,102,110);
     d.rect(ml, y-11, ancho, 17, 'F');
     d.setFont('helvetica','bold'); d.setFontSize(9.5); d.setTextColor(255,255,255);
     d.text(titulo.toUpperCase(), ml+6, y+1); y+=16;
