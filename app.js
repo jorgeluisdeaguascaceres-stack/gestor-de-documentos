@@ -612,14 +612,13 @@ function renderConsulta(lista){
   $('csPdf').disabled = lista.length===0;
   const nombre = lista.length ? lista[0].pac : nombrePorDoc($('csDoc').value.trim());
   $('csPac').textContent = nombre ? ('Paciente: '+nombre+'  ·  Documento: '+$('csDoc').value.trim()) : '';
-  if(!lista.length){ const tr=document.createElement('tr'); const c=td('No hay servicios para ese documento en el rango indicado.'); c.colSpan=5; c.className='vacio'; tr.appendChild(c); tb.appendChild(tr); return; }
+  if(!lista.length){ const tr=document.createElement('tr'); const c=td('No hay servicios para ese documento en el rango indicado.'); c.colSpan=4; c.className='vacio'; tr.appendChild(c); tb.appendChild(tr); return; }
   lista.forEach(n=>{
     const tr=document.createElement('tr');
     tr.appendChild(td(fmtFecha(n.fecha)));
     const tt=document.createElement('td'); const p=document.createElement('span'); p.className='pill cy'; p.textContent=n.tipo; tt.appendChild(p); tr.appendChild(tt);
     tr.appendChild(td(n.pac));
     tr.appendChild(td(n.medico));
-    const ct=document.createElement('td'); ct.className='cellwrap'; ct.textContent=n.texto||'—'; tr.appendChild(ct);
     tb.appendChild(tr);
   });
 }
