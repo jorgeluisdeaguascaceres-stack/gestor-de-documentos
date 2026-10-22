@@ -748,10 +748,16 @@ function construirDoc(note, titulo, drawBody, opts){
     const labW=d.getTextWidth(lab);
     d.setFont('helvetica','normal'); d.setTextColor(INK[0],INK[1],INK[2]);
     const lineas=d.splitTextToSize(valor, ancho-labW-10);
-    nl(lineas.length*12+4);
+    /* El texto FLUYE linea por linea: si es largo, continua en la pagina
+       siguiente en vez de saltar el bloque completo (eso dejaba una hoja casi
+       vacia). Solo aseguramos que la primera linea quepa. */
+    nl(14);
     if(lab){ d.setFont('helvetica','bold'); d.setTextColor(60,72,88); d.text(lab, ml+4, y); }
     d.setFont('helvetica','normal'); d.setTextColor(INK[0],INK[1],INK[2]);
-    lineas.forEach((ln,i)=>{ d.text(ln, ml+4+(i===0?labW:0), y); y+=12; });
+    lineas.forEach((ln,i)=>{
+      if(i>0) nl(12);
+      d.text(ln, ml+4+(i===0?labW:0), y); y+=12;
+    });
     y+=2;
   }
 
