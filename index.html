@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NEXUSMED · Plataforma Clínica</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="appbar">
+  <div class="brand">
+    <div class="brandlogo">
+      <svg viewBox="0 0 64 64" width="100%" height="100%" aria-hidden="true">
+        <defs><linearGradient id="nxg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#2dd4bf"/><stop offset="1" stop-color="#00c8f8"/>
+        </linearGradient></defs>
+        <path d="M27 9 h10 a3 3 0 0 1 3 3 v12 h12 a3 3 0 0 1 3 3 v10 a3 3 0 0 1 -3 3 h-12 v12 a3 3 0 0 1 -3 3 h-10 a3 3 0 0 1 -3 -3 v-12 h-12 a3 3 0 0 1 -3 -3 v-10 a3 3 0 0 1 3 -3 h12 v-12 a3 3 0 0 1 3 -3 z" fill="url(#nxg)"/>
+        <path d="M41 20 c9 -3 15 -1 15 -1 s-1 11 -8 14 c-5 2 -9 1 -9 1 s-2 -9 2 -14 z" fill="#0b1622" opacity=".3"/>
+      </svg>
+    </div>
+    <div>
+      <div class="brandname">NEXUS<span>MED</span></div>
+      <div class="brandtag">plataforma que conecta todo</div>
+    </div>
+  </div>
+  <div class="userchip">
+    <span class="udot"></span>
+    <span class="uname" id="userName">—</span>
+    <span class="urole" id="userRole">—</span>
+    <button class="logout" id="btnSalir" type="button" title="Cerrar sesión">Salir</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- ===================== INICIO ===================== -->
+  <section id="home" class="view sel">
+    <div class="welcome">
+      <h1>Bienvenido</h1>
+      <p>Seleccione un módulo para comenzar a trabajar</p>
+    </div>
+    <div class="cards">
+      <button class="modcard" data-view="admision" type="button">
+        <span class="tag">ACTIVO</span>
+        <span class="modicon">
+          <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>
+        </span>
+        <span class="modtitle">Admisión</span>
+        <span class="moddesc">Registro y gestión de ingresos de pacientes al centro.</span>
+      </button>
+
+      <button class="modcard" data-view="registro" type="button">
+        <span class="tag">ACTIVO</span>
+        <span class="modicon">
+          <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h6M9 9h1"/></svg>
+        </span>
+        <span class="modtitle">Registro Médico</span>
+        <span class="moddesc">Historias clínicas y notas de evolución de la IPS.</span>
+      </button>
+
+      <button class="modcard" data-view="consulta" type="button">
+        <span class="tag">ACTIVO</span>
+        <span class="modicon">
+          <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/><path d="M8 11h6M11 8v6"/></svg>
+        </span>
+        <span class="modtitle">Consulta</span>
+        <span class="moddesc">Buscar servicios por documento y rango de fechas, y exportar en PDF.</span>
+      </button>
+
+      <button class="modcard" data-view="config" type="button">
+        <span class="tag">ACTIVO</span>
+        <span class="modicon">
+          <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </span>
+        <span class="modtitle">Configuraciones</span>
+        <span class="moddesc">Usuarios, control de acceso y parámetros del sistema.</span>
+      </button>
+    </div>
+  </section>
+  <!-- ===================== ADMISIÓN ===================== -->
+  <section id="admision" class="view">
+    <div class="viewhead">
+      <button class="back" data-view="home" type="button">← Inicio</button>
+      <h2>Admisión de pacientes</h2>
+      <span class="crumb">Módulo &middot; Flujo de entrada</span>
+    </div>
+    <div class="panel">
+      <h3>Datos del paciente e ingreso</h3>
+      <form id="formAdm" autocomplete="off">
+        <div class="grid">
+          <div><label>Tipo de documento</label>
+            <select id="admTipoDoc"><option>CC</option><option>TI</option><option>RC</option><option>CE</option><option>PA</option><option>NUIP</option></select></div>
+          <div><label class="req">Número de documento</label><input id="admDoc" inputmode="numeric" placeholder="1234567890"></div>
+          <div><label class="req">Primer nombre</label><input id="admN1" placeholder="Nombre"></div>
+          <div><label>Segundo nombre</label><input id="admN2"></div>
+          <div><label class="req">Primer apellido</label><input id="admA1" placeholder="Apellido"></div>
+          <div><label>Segundo apellido</label><input id="admA2"></div>
+          <div><label>Fecha de nacimiento</label><input id="admNac" type="date"></div>
+          <div><label>Sexo</label><select id="admSexo"><option value="">—</option><option>Femenino</option><option>Masculino</option><option>Otro</option></select></div>
+          <div><label>Teléfono</label><input id="admTel" inputmode="tel"></div>
+          <div><label>Dirección</label><input id="admDir"></div>
+          <div><label>EPS / Aseguradora</label><input id="admEps" list="epsListDL" placeholder="Nueva EPS, Sanitas..."><datalist id="epsListDL"></datalist></div>
+          <div><label>Régimen</label><select id="admReg"><option>Contributivo</option><option>Subsidiado</option><option>Particular</option><option>Especial</option></select></div>
+          <div><label>Tipo de ingreso</label><select id="admIng"><option>Urgencias</option><option>Consulta domiciliaria</option><option>Hospitalización</option><option>Procedimiento</option></select></div>
+          <div><label>Fecha y hora de ingreso</label><input id="admFecha" type="datetime-local"></div>
+          <div><label>Diagnóstico de ingreso (CIE-10)</label><input id="admDx" placeholder="Ej. J00 - Rinofaringitis"></div>
+          <div><label>Médico / profesional</label><input id="admMed" placeholder="Dr(a). ..."></div>
+          <div class="wide"><label>Observaciones</label><textarea id="admObs" rows="3"></textarea></div>
+        </div>
+        <div class="actions">
+          <button class="btn" id="admGuardar" type="submit">Guardar admisión</button>
+          <button class="btn ghost" id="admLimpiar" type="button">Limpiar</button>
+          <span class="msg" id="admMsg"></span>
+        </div>
+      </form>
+    </div>
+    <div class="panel">
+      <div class="ptop"><h3>Admisiones recientes</h3><span class="count" id="admCount">0 registros</span></div>
+      <div class="tablebox">
+        <table><thead><tr><th>Ingreso</th><th>Paciente</th><th>Documento</th><th>Tipo</th><th>EPS</th><th>Médico</th><th></th></tr></thead>
+        <tbody id="admTb"></tbody></table>
+      </div>
+    </div>
+  </section>
+  <!-- ===================== REGISTRO MÉDICO ===================== -->
+  <section id="registro" class="view">
+    <div class="viewhead">
+      <button class="back" data-view="home" type="button">← Inicio</button>
+      <h2>Registro Médico</h2>
+      <span class="crumb">Módulo &middot; Núcleo clínico</span>
+    </div>
+
+    <!-- Paso 1: elegir tipo de registro -->
+    <div class="panel" id="regTipos">
+      <h3>¿Qué desea registrar?</h3>
+      <p class="hint">Elija una opción para comenzar.</p>
+      <div class="biglist" id="regTipoList">
+        <button class="bigbtn" type="button" data-tipo="Historia clínica">Historia clínica</button>
+        <button class="bigbtn" type="button" data-tipo="Evolución de enfermería">Evolución de enfermería</button>
+        <button class="bigbtn" type="button" data-tipo="Evolución de psicología">Evolución de psicología</button>
+        <button class="bigbtn" type="button" data-tipo="Evolución de terapia física">Evolución de terapia física</button>
+        <button class="bigbtn" type="button" data-tipo="Evolución de fonoaudiología">Evolución de fonoaudiología</button>
+        <button class="bigbtn" type="button" data-tipo="Evolución de terapia de salud ocupacional">Evolución de terapia de salud ocupacional</button>
+        <button class="bigbtn" type="button" data-tipo="Nota de servicio de cama">Nota de servicio de cama</button>
+        <button class="bigbtn" type="button" data-tipo="Limpieza y cuidado de la traqueotomía">Limpieza y cuidado de la traqueotomía</button>
+      </div>
+    </div>
+
+    <!-- Paso 2: buscar paciente y ver / crear notas -->
+    <div id="regPanel" hidden>
+      <div class="panel">
+        <div class="ptop">
+          <h3 id="regTipoTit">—</h3>
+          <button class="btn ghost mini" id="regVolver" type="button">← Cambiar tipo</button>
+        </div>
+        <div class="grid">
+          <div class="wide"><label class="req">Buscar paciente (nombre o documento)</label>
+            <input id="regBuscar" list="pacFull" placeholder="Escriba el nombre o el número de documento" autocomplete="off">
+            <datalist id="pacFull"></datalist></div>
+          <div><label>Paciente</label><input id="regPacNom" readonly placeholder="—"></div>
+          <div><label>Documento</label><input id="regPacDoc" readonly placeholder="—"></div>
+        </div>
+        <div class="actions">
+          <button class="btn" id="regNueva" type="button" disabled>+ Nueva nota</button>
+          <span class="msg" id="regMsg"></span>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="ptop"><h3>Notas anteriores</h3><span class="count" id="regCount">0 registros</span></div>
+        <div class="tablebox">
+          <table><thead><tr><th>Fecha y hora</th><th>Tipo</th><th>Profesional</th><th></th></tr></thead>
+          <tbody id="regTb"></tbody></table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== CONSULTA ===================== -->
+  <section id="consulta" class="view">
+    <div class="viewhead">
+      <button class="back" data-view="home" type="button">← Inicio</button>
+      <h2>Consulta clínica</h2>
+      <span class="crumb">Módulo &middot; Búsqueda y exportación</span>
+    </div>
+    <div class="panel">
+      <h3>Buscar por documento</h3>
+      <form id="formCons" autocomplete="off">
+        <div class="grid csfiltros">
+          <div><label class="req">Número de documento</label><input id="csDoc" inputmode="numeric" placeholder="1234567890"></div>
+          <div><label>Servicio</label>
+            <select id="csServ">
+              <option value="">Todos los servicios</option>
+              <option>Historia clínica</option>
+              <option>Evolución de enfermería</option>
+              <option>Evolución de psicología</option>
+              <option>Evolución de terapia física</option>
+              <option>Evolución de fonoaudiología</option>
+              <option>Evolución de terapia de salud ocupacional</option>
+              <option>Nota de servicio de cama</option>
+              <option>Limpieza y cuidado de la traqueotomía</option>
+            </select></div>
+          <div><label>Médico / profesional</label>
+            <select id="csMed"><option value="">Todos los profesionales</option></select></div>
+          <div><label>Fecha inicio</label><input id="csD1" class="datepick" type="text" readonly autocomplete="off" placeholder="año-mes-día"></div>
+          <div><label>Fecha fin</label><input id="csD2" class="datepick" type="text" readonly autocomplete="off" placeholder="año-mes-día"></div>
+        </div>
+        <div class="actions">
+          <button class="btn" type="submit">Consultar</button>
+          <button class="btn ghost" id="csLimpiar" type="button">Limpiar</button>
+          <button class="btn" id="csPdf" type="button" disabled>Descargar PDF</button>
+          <span class="msg" id="csMsg"></span>
+        </div>
+      </form>
+    </div>
+    <div class="panel">
+      <div class="ptop"><h3>Resultados</h3><span class="count" id="csCount">0 registros</span></div>
+      <div id="csPac" class="hint" style="margin:0 0 10px"></div>
+      <div class="tablebox">
+        <table><thead><tr><th>Fecha</th><th>Servicio</th><th>Paciente</th><th>Médico / profesional</th><th>Contenido</th></tr></thead>
+        <tbody id="csTb"></tbody></table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== CONFIGURACIONES ===================== -->
+  <section id="config" class="view">
+    <div class="viewhead">
+      <button class="back" data-view="home" type="button">← Inicio</button>
+      <h2>Configuraciones</h2>
+      <span class="crumb">Módulo &middot; Administración</span>
+    </div>
+    <div class="cfgwrap">
+      <nav class="cfgnav" id="cfgNav">
+        <button class="cfgtab active" data-cfg="usuarios" type="button">Registro de usuario</button>
+        <button class="cfgtab" data-cfg="matriz" type="button">Matriz de permisos</button>
+        <button class="cfgtab" data-cfg="ips" type="button">Registro de la IPS</button>
+        <button class="cfgtab" data-cfg="eps" type="button">Gestión de EPS</button>
+        <button class="cfgtab" data-cfg="seguridad" type="button">Seguridad</button>
+        <button class="cfgtab" data-cfg="respaldo" type="button">Respaldo</button>
+        <button class="cfgtab" data-cfg="limpiar" type="button">Limpiar sistema</button>
+      </nav>
+      <div class="cfgbody">
+
+        <!-- Apartado: Registro de usuario -->
+        <div class="cfgpane" id="cfg-usuarios">
+          <div class="panel">
+            <h3>Crear usuario</h3>
+            <p class="hint">Registre a cada persona del equipo con su <b>perfil profesional</b>. Todos pueden hacer historia clínica; lo que define el documento es su <b>especialidad</b> y su <b>firma</b>. Luego defina qué puede hacer en la <b>Matriz de permisos</b>.</p>
+            <form id="formUsr" autocomplete="off">
+              <p class="hint" id="nuCloudHint" hidden style="background:rgba(0,200,248,.08);border:1px solid rgba(0,200,248,.25);border-radius:10px;padding:8px 10px"><b>Modo nube:</b> cree aquí al profesional con su <b>correo</b> y una <b>contraseña temporal</b>. Entréguele esos dos datos: podrá abrir la app y entrar <b>desde cualquier lugar</b> (otra ciudad, otro celular). Al ingresar, podrá cambiar su contraseña.</p>
+              <div class="grid">
+                <div id="nuUsuarioWrap"><label class="req">Usuario</label><input id="nuUsuario" placeholder="maria.gomez"></div>
+                <div id="nuEmailWrap" hidden><label class="req">Correo electrónico</label><input id="nuEmail" type="email" placeholder="medico@correo.com"></div>
+                <div><label>Número de documento</label><input id="nuDoc" inputmode="numeric" placeholder="C.C. 1010101010"></div>
+                <div class="wide"><label>Nombre completo del profesional</label><input id="nuNombre" placeholder="Dr(a). Nombre Apellido"></div>
+                <div><label class="req">Contraseña</label><input id="nuClave" type="password" placeholder="mínimo 5"></div>
+                <div><label>Rol</label><select id="nuRol"><option value="administrativo">Administrativo (admisiones)</option><option value="medico">Médico (registro clínico)</option><option value="auxiliar">Auxiliar de enfermería (notas de enfermería)</option><option value="admin">Administrador (admisión + registro)</option></select></div>
+                <div><label>Registro profesional</label><input id="nuRegistro" placeholder="RM-12345"></div>
+                <div><label>Especialidad / área</label><select id="nuEspec"></select></div>
+                <div class="wide">
+                  <label>Firma digital (opcional)</label>
+                  <div class="firmarow">
+                    <input id="nuFirmaFile" type="file" accept="image/png,image/jpeg">
+                    <button class="btn ghost mini" id="nuFirmaQuitar" type="button">Quitar</button>
+                  </div>
+                  <img id="nuFirmaPrev" class="firmaprev" alt="Vista previa de la firma" hidden>
+                  <span class="hint">Imagen de la firma con fondo blanco. Aparecerá en los documentos PDF que genere el profesional.</span>
+                </div>
+              </div>
+              <div class="actions"><button class="btn" type="submit">Crear usuario</button><span class="msg" id="usrMsg"></span></div>
+            </form>
+          </div>
+          <div class="panel">
+            <div class="ptop"><h3>Usuarios registrados</h3><span class="count" id="usrCount">0 usuarios</span></div>
+            <div class="tablebox">
+              <table><thead><tr><th>Usuario</th><th>Profesional</th><th>Especialidad</th><th>Rol</th><th>Estado</th><th>Último acceso</th><th></th></tr></thead>
+              <tbody id="usrListTb"></tbody></table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Apartado: Matriz de permisos -->
+        <div class="cfgpane" id="cfg-matriz" hidden>
+          <div class="panel">
+            <div class="ptop"><h3>Matriz de permisos</h3></div>
+            <p class="hint">Solo el <b>usuario maestro</b> administra permisos. Active o desactive el acceso de cada persona a cada módulo con los interruptores. La columna <b>Editar</b> autoriza a modificar admisiones guardadas y la columna <b>Eliminar</b> autoriza a borrar notas clínicas. El permiso de <b>Config</b> está reservado y solo tú puedes concederlo.</p>
+            <div class="tablebox">
+              <table><thead><tr><th>Usuario</th><th>Rol</th><th>Admisión</th><th>Registro</th><th>Consulta</th><th>Config</th><th>Editar</th><th>Eliminar</th></tr></thead>
+              <tbody id="usrTb"></tbody></table>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="ptop"><h3>Permiso para crear notas</h3></div>
+            <p class="hint">Active el tipo de nota que cada persona puede <b>crear y editar</b>. <b>Ver</b> una nota siempre está permitido a quien tenga acceso al módulo Registro: por eso un médico puede leer una nota de enfermería aunque no la pueda redactar, y una auxiliar puede leer una historia clínica o una terapia aunque no la pueda crear. Pase el cursor sobre cada columna para ver el tipo completo.</p>
+            <div class="tablebox">
+              <table class="mcrear"><thead><tr><th>Usuario</th><th>Rol</th><th title="Historia clínica">H. clínica</th><th title="Evolución de enfermería">Enfermería</th><th title="Evolución de psicología">Psicología</th><th title="Evolución de terapia física">T. física</th><th title="Evolución de fonoaudiología">Fonoaud.</th><th title="Evolución de terapia de salud ocupacional">T. ocup.</th><th title="Nota de servicio de cama">N. cama</th><th title="Limpieza y cuidado de la traqueotomía">Traqueo.</th></tr></thead>
+              <tbody id="usrCrearTb"></tbody></table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Apartado: Registro de la IPS -->
+        <div class="cfgpane" id="cfg-ips" hidden>
+          <div class="panel">
+            <h3>Parámetros de la IPS</h3>
+            <p class="hint">Datos institucionales que aparecerán en los documentos generados.</p>
+            <form id="formIps" autocomplete="off">
+              <div class="grid">
+                <div class="wide"><label>Nombre de la IPS</label><input id="ipsNombre" placeholder="IPS ..."></div>
+                <div><label>NIT</label><input id="ipsNit" inputmode="numeric" placeholder="900123456"></div>
+                <div><label>Código de habilitación</label><input id="ipsHab"></div>
+                <div class="wide"><label>Dirección</label><input id="ipsDir" placeholder="Carrera 9 No 10-31 B.Alfonso Lopez"></div>
+                <div><label>Teléfono</label><input id="ipsTel" inputmode="tel" placeholder="3013895021"></div>
+                <div><label>Correo</label><input id="ipsEmail" type="email" placeholder="correo@ejemplo.com"></div>
+                <div><label>Ciudad / Municipio</label><input id="ipsCiudad" placeholder="Fundación - Magdalena"></div>
+                <div class="wide">
+                  <label>Logo de la IPS (opcional)</label>
+                  <div class="firmarow">
+                    <input id="ipsLogoFile" type="file" accept="image/png,image/jpeg">
+                    <button class="btn ghost mini" id="ipsLogoQuitar" type="button">Quitar</button>
+                  </div>
+                  <img id="ipsLogoPrev" class="firmaprev" alt="Vista previa del logo" hidden>
+                  <span class="hint">Imagen PNG o JPEG (preferiblemente con fondo blanco). Aparecerá en el encabezado de los documentos PDF.</span>
+                </div>
+              </div>
+              <div class="actions"><button class="btn" type="submit">Guardar parámetros</button><span class="msg" id="ipsMsg"></span></div>
+            </form>
+          </div>
+        </div>
+
+        <!-- Apartado: Gestión de EPS (entidades a las que se presta el servicio) -->
+        <div class="cfgpane" id="cfg-eps" hidden>
+          <div class="panel">
+            <h3>Gestión de EPS / entidades pagadoras</h3>
+            <p class="hint">Registre las <b>EPS y entidades</b> a las que la IPS presta el servicio. Estas aparecerán como sugerencia al diligenciar la <b>Admisión</b> del paciente.</p>
+            <form id="formEps" autocomplete="off">
+              <div class="grid">
+                <div><label>Código EPS</label><input id="epsCodigo" placeholder="EPS017"></div>
+                <div class="wide"><label class="req">Nombre de la EPS</label><input id="epsNombre" placeholder="COOSALUD EPS"></div>
+                <div class="wide"><label>URL de verificación de derechos (opcional)</label><input id="epsUrl" placeholder="https://portal-eps.com/verificar-derechos"></div>
+                <div><label>Régimen</label><select id="epsRegimen"><option>Contributivo</option><option>Subsidiado</option><option>Especial</option><option>Particular</option></select></div>
+                <div><label>NIT</label><input id="epsNit" placeholder="900.123.456-7"></div>
+                <div><label>Teléfono</label><input id="epsTel" placeholder="+57 300 000 0000"></div>
+                <div><label>Email de radicación</label><input id="epsEmail" placeholder="radicacion@eps.com"></div>
+                <div class="wide"><label>Observaciones</label><textarea id="epsObs" rows="2" placeholder="Convenio, condiciones especiales..."></textarea></div>
+              </div>
+              <div class="actions">
+                <button class="btn" type="submit" id="epsGuardar">Guardar EPS</button>
+                <button class="btn ghost" id="epsLimpiar" type="button">Limpiar</button>
+                <span class="msg" id="epsMsg"></span>
+              </div>
+            </form>
+          </div>
+          <div class="panel">
+            <div class="ptop"><h3>EPS registradas</h3><span class="count" id="epsCount">0 EPS</span></div>
+            <div class="tablebox">
+              <table><thead><tr><th>Código</th><th>Nombre EPS</th><th>Régimen</th><th>NIT</th><th>Teléfono</th><th>Email</th><th>Activo</th><th></th></tr></thead>
+              <tbody id="epsTb"></tbody></table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Apartado: Seguridad (cambio de contraseña del usuario activo) -->
+        <div class="cfgpane" id="cfg-seguridad" hidden>
+          <div class="panel">
+            <h3>Cambiar mi contraseña</h3>
+            <p class="hint">Cambie la contraseña de <b id="segUser">su usuario</b>. Debe tener mínimo 5 caracteres (pueden ser solo números o solo letras).</p>
+            <form id="formPwd" autocomplete="off">
+              <div class="grid">
+                <div><label class="req">Contraseña actual</label><input id="pwActual" type="password" placeholder="••••••••"></div>
+                <div><label class="req">Nueva contraseña</label><input id="pwNueva" type="password" placeholder="mínimo 5"></div>
+                <div><label class="req">Repetir nueva contraseña</label><input id="pwNueva2" type="password" placeholder="repetir"></div>
+              </div>
+              <div class="actions"><button class="btn" type="submit">Actualizar contraseña</button><span class="msg" id="pwMsg"></span></div>
+            </form>
+          </div>
+        </div>
+
+        <!-- Apartado: Respaldo (exportar / importar) -->
+        <div class="cfgpane" id="cfg-respaldo" hidden>
+          <div class="panel">
+            <h3>Respaldo y traslado de datos</h3>
+            <p class="hint">Como la información se guarda en este dispositivo, use el respaldo para <b>pasar todo a otro PC o celular</b>. Exporte aquí, envíe el archivo al otro equipo (correo, WhatsApp, USB) e impórtelo allá. <b>No sincroniza solo</b> y no reemplaza a un servidor; es un traslado manual.</p>
+            <div class="actions" style="gap:10px;flex-wrap:wrap">
+              <button class="btn" id="btnExport" type="button">Exportar respaldo</button>
+              <button class="btn ghost" id="btnImportPick" type="button">Importar respaldo</button>
+              <input id="fileImport" type="file" accept="application/json,.json" hidden>
+              <span class="msg" id="bkMsg"></span>
+            </div>
+            <p class="hint" id="bkInfo" style="margin-top:12px"></p>
+          </div>
+        </div>
+
+        <!-- Apartado: Limpiar sistema (borra solo pacientes) -->
+        <div class="cfgpane" id="cfg-limpiar" hidden>
+          <div class="panel">
+            <h3>Limpiar el sistema</h3>
+            <p class="hint">Borra <b>solo los pacientes</b>: sus admisiones y todas sus notas de historia clínica. Lo demás queda <b>intacto</b>: los <b>usuarios</b> del equipo, las <b>EPS</b> y los datos de la <b>IPS</b> no se tocan. Útil para dejar el sistema listo para empezar de cero sin volver a crear usuarios ni configuración.</p>
+            <p class="hint" id="limInfo" style="margin-top:8px"></p>
+            <div class="panel" style="border-color:#b3261e;background:rgba(179,38,30,.08);margin-top:12px">
+              <p class="hint" style="margin:0 0 10px"><b>Esta acción no se puede deshacer.</b> Si quiere conservar los pacientes, primero use <b>Respaldo → Exportar respaldo</b>. Para confirmar, escriba <b>BORRAR</b> y toque el botón.</p>
+              <div class="actions" style="gap:10px;flex-wrap:wrap">
+                <input id="limConfirm" type="text" placeholder="Escriba BORRAR" autocomplete="off" style="max-width:180px">
+                <button class="btn del" id="btnLimpiar" type="button">Limpiar solo pacientes</button>
+                <span class="msg" id="limMsg"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== MODAL NUEVA NOTA ===================== -->
+  <div class="overlay" id="ovNota" hidden>
+    <div class="modal">
+      <div class="mtop"><h3 id="notaTit">Nueva nota clínica</h3><button class="mx" id="notaX" type="button">&times;</button></div>
+      <form id="formNota" autocomplete="off">
+        <div class="grid">
+          <div><label>Tipo de nota</label><input id="ntTipo" readonly></div>
+          <div><label>Paciente</label><input id="ntPac" readonly></div>
+          <div><label>Documento</label><input id="ntDoc" readonly></div>
+          <div><label>Médico / profesional</label><input id="ntMed" placeholder="Dr(a). ..."></div>
+          <div><label class="req">Fecha y hora de la nota</label><input id="ntFecha" type="datetime-local"><span class="hint">Se llena con la hora actual. Puede cambiarla para registrar una nota de días anteriores.</span></div>
+          <div class="wide" id="ntSimpleBox"><label class="req">Contenido de la nota</label><textarea id="ntTexto" rows="6" placeholder="S: ... O: ... A: ... P: ..."></textarea></div>
+        </div>
+
+        <!-- Formulario estructurado de HISTORIA CLÍNICA (formato EPS) -->
+        <div id="ntHC" hidden>
+          <h4 class="sechc">Motivo de la consulta</h4>
+          <div class="grid">
+            <div class="wide"><label>Motivo</label><textarea id="hcMotivo" rows="2" placeholder="Motivo de la consulta..."></textarea></div>
+          </div>
+          <h4 class="sechc">Enfermedad actual</h4>
+          <div class="grid">
+            <div class="wide"><label>Enfermedad actual</label><textarea id="hcEnf" rows="4" placeholder="Descripción de la enfermedad actual..."></textarea></div>
+          </div>
+          <h4 class="sechc">Revisión por sistemas · Signos vitales</h4>
+          <div class="grid vit">
+            <div><label>TA (mmHg)</label><input id="hcTA" placeholder="120/80"></div>
+            <div><label>FC (lpm)</label><input id="hcFC" inputmode="numeric" placeholder="80"></div>
+            <div><label>FR (rpm)</label><input id="hcFR" inputmode="numeric" placeholder="16"></div>
+            <div><label>Temp (°C)</label><input id="hcT" inputmode="decimal" placeholder="36.5"></div>
+            <div><label>SatO2 (%)</label><input id="hcSat" inputmode="numeric" placeholder="97"></div>
+            <div><label>Peso (kg)</label><input id="hcPeso" inputmode="decimal" placeholder="70"></div>
+            <div><label>Talla (cm)</label><input id="hcTalla" inputmode="decimal" placeholder="170"></div>
+            <div><label>IMC</label><input id="hcIMC" inputmode="decimal" placeholder="auto" readonly></div>
+            <div class="wide"><label>Dx nutricional / revisión por sistemas</label><input id="hcDxNut" placeholder="Ej. Normal / Delgadez"></div>
+          </div>
+          <h4 class="sechc">Antecedentes</h4>
+          <div class="grid">
+            <div class="wide"><label>Personales</label><textarea id="hcAntPer" rows="2"></textarea></div>
+            <div><label>Familiares</label><textarea id="hcAntFam" rows="2"></textarea></div>
+            <div><label>Alergias</label><textarea id="hcAlerg" rows="2"></textarea></div>
+            <div><label>Quirúrgicos</label><textarea id="hcQuir" rows="2"></textarea></div>
+            <div><label>Gineco-obstétricos</label><textarea id="hcGineco" rows="2"></textarea></div>
+          </div>
+          <h4 class="sechc">Examen físico <button type="button" class="normall" id="hcNormAll">Marcar todo normal</button></h4>
+          <div class="grid">
+            <div><div class="labrow"><label>Estado general y conciencia</label><button type="button" class="normbtn" data-norm="hcExGen">Normal</button></div><textarea id="hcExGen" rows="2"></textarea></div>
+            <div><div class="labrow"><label>Cabeza, cara y cuello</label><button type="button" class="normbtn" data-norm="hcExCab">Normal</button></div><textarea id="hcExCab" rows="2"></textarea></div>
+            <div><div class="labrow"><label>Tórax</label><button type="button" class="normbtn" data-norm="hcExTorax">Normal</button></div><textarea id="hcExTorax" rows="2"></textarea></div>
+            <div><div class="labrow"><label>Abdomen</label><button type="button" class="normbtn" data-norm="hcExAbd">Normal</button></div><textarea id="hcExAbd" rows="2"></textarea></div>
+            <div><div class="labrow"><label>Genitales</label><button type="button" class="normbtn" data-norm="hcExGen2">Normal</button></div><textarea id="hcExGen2" rows="2"></textarea></div>
+            <div><div class="labrow"><label>Extremidades</label><button type="button" class="normbtn" data-norm="hcExExt">Normal</button></div><textarea id="hcExExt" rows="2"></textarea></div>
+            <div><div class="labrow"><label>Sistema nervioso central</label><button type="button" class="normbtn" data-norm="hcExSNC">Normal</button></div><textarea id="hcExSNC" rows="2"></textarea></div>
+            <div><div class="labrow"><label>Piel y faneras</label><button type="button" class="normbtn" data-norm="hcExPiel">Normal</button></div><textarea id="hcExPiel" rows="2"></textarea></div>
+          </div>
+          <h4 class="sechc">Diagnóstico</h4>
+          <div class="grid">
+            <div class="wide"><label>Diagnósticos (uno por línea)</label><textarea id="hcDx" rows="3" placeholder="Dx 1&#10;Dx 2"></textarea></div>
+          </div>
+          <h4 class="sechc">Plan</h4>
+          <div class="grid">
+            <div class="wide"><label>Plan de manejo</label><textarea id="hcPlan" rows="3"></textarea></div>
+          </div>
+          <h4 class="sechc">Paraclínicos <span class="hcsep">· documento aparte</span></h4>
+          <div class="grid">
+            <div class="wide"><label>Paraclínicos solicitados (uno por línea)</label><textarea id="hcPara" rows="2" placeholder="Hemograma&#10;Uroanálisis"></textarea></div>
+          </div>
+          <h4 class="sechc">Órdenes médicas <span class="hcsep">· documento aparte</span></h4>
+          <div class="grid">
+            <div class="wide"><label>Órdenes médicas (una por línea)</label><textarea id="hcOrdenes" rows="2" placeholder="Oxigenoterapia&#10;Curación diaria"></textarea></div>
+          </div>
+          <h4 class="sechc">Fórmula médica <span class="hcsep">· documento aparte</span></h4>
+          <div class="grid">
+            <div class="wide"><label>Medicamentos (uno por línea: nombre, dosis, vía, frecuencia)</label><textarea id="hcFormula" rows="3" placeholder="Acetaminofén 500 mg vía oral cada 8 horas por 3 días"></textarea></div>
+          </div>
+        </div>
+
+        <div class="actions"><button class="btn" id="notaGuardar" type="submit">Guardar nota</button><button class="btn ghost" id="notaCancel" type="button">Cancelar</button><span class="msg" id="ntMsg"></span></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================== VISTA PREVIA (antes de imprimir) ===================== -->
+  <div class="overlay" id="ovPrev" hidden>
+    <div class="modal prev">
+      <div class="mtop"><h3 id="prevTit">Vista previa</h3><button class="mx" id="prevX" type="button">&times;</button></div>
+      <p class="hint">Así se verán los documentos. La historia clínica y cada paraclínico, orden médica o fórmula se descargan como <b>PDF separados</b>.</p>
+      <div id="prevDocs"></div>
+      <div class="actions" id="prevActions" style="flex-wrap:wrap;gap:8px"></div>
+    </div>
+  </div>
+</main>
+
+<!-- ===================== ACCESO (LOGIN) ===================== -->
+<div class="gate" id="gate" hidden>
+  <div class="gatebg"></div>
+  <div class="gbox">
+    <div class="glogo">
+      <div class="gmark">
+        <svg viewBox="0 0 64 64" width="100%" height="100%" aria-hidden="true">
+          <defs><linearGradient id="gxg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#2dd4bf"/><stop offset="1" stop-color="#00c8f8"/>
+          </linearGradient></defs>
+          <path d="M27 9 h10 a3 3 0 0 1 3 3 v12 h12 a3 3 0 0 1 3 3 v10 a3 3 0 0 1 -3 3 h-12 v12 a3 3 0 0 1 -3 3 h-10 a3 3 0 0 1 -3 -3 v-12 h-12 a3 3 0 0 1 -3 -3 v-10 a3 3 0 0 1 3 -3 h12 v-12 a3 3 0 0 1 3 -3 z" fill="url(#gxg)"/>
+          <path d="M41 20 c9 -3 15 -1 15 -1 s-1 11 -8 14 c-5 2 -9 1 -9 1 s-2 -9 2 -14 z" fill="#0b1622" opacity=".3"/>
+        </svg>
+      </div>
+      <div class="gword">NEXUS<span>MED</span></div>
+    </div>
+    <div id="nubeEstado" class="nube-estado nube-check">Verificando nube…</div>
+
+    <!-- login normal -->
+    <div id="gLogin">
+      <h2>Bienvenido</h2>
+      <p class="gsub">Ingrese sus credenciales para acceder al sistema.</p>
+      <form id="formLogin" autocomplete="on">
+        <div class="gfield"><label>Usuario</label><input id="inUsuario" autocomplete="username" placeholder="usuario.maestro"></div>
+        <div class="gfield"><label>Contraseña</label>
+          <div class="pwrow"><input id="inClave" type="password" autocomplete="current-password" placeholder="••••••••"><button class="btn ghost mini" id="btnVer" type="button">Ver</button></div>
+        </div>
+        <button class="btn" id="btnEntrar" type="submit" style="width:100%">Ingresar</button>
+      </form>
+      <div class="msg" id="msgLogin"></div>
+      <p class="glink"><button class="linkbtn" id="btnIrCambio" type="button">¿Cambiar contraseña?</button></p>
+    </div>
+
+    <!-- cambiar contraseña desde el inicio (cualquier usuario) -->
+    <div id="gCambio" hidden>
+      <h2>Cambiar contraseña</h2>
+      <p class="gsub">Escriba su usuario y su contraseña actual, luego la nueva.</p>
+      <form id="formCambio" autocomplete="off">
+        <div class="gfield"><label>Usuario</label><input id="cbUsuario" placeholder="su.usuario"></div>
+        <div class="gfield"><label>Contraseña actual</label>
+          <div class="pwrow"><input id="cbActual" type="password" placeholder="••••••••"><button class="btn ghost mini" id="btnVerCb" type="button">Ver</button></div>
+        </div>
+        <div class="gfield"><label>Nueva contraseña (mínimo 5 caracteres)</label><input id="cbNueva" type="password" placeholder="•••••"></div>
+        <div class="gfield"><label>Repita la nueva contraseña</label><input id="cbNueva2" type="password" placeholder="••••••••"></div>
+        <button class="btn" id="btnCambio" type="submit" style="width:100%">Cambiar contraseña</button>
+      </form>
+      <div class="msg" id="msgCambio"></div>
+      <p class="glink"><button class="linkbtn" id="btnVolverLogin" type="button">← Volver al inicio de sesión</button></p>
+    </div>
+
+    <!-- primer uso: crear usuario maestro -->
+    <div id="gAlta" hidden>
+      <h2>Crear usuario maestro</h2>
+      <p class="gsub">Es la primera vez que se usa el sistema. Cree el <b>usuario maestro</b>: será el único con acceso a Configuraciones.</p>
+      <form id="formAlta" autocomplete="off">
+        <div class="gfield"><label>Usuario</label><input id="altaUsuario" placeholder="jorge.deaguas"></div>
+        <div class="gfield"><label>Contraseña (mínimo 5 caracteres)</label><input id="altaClave" type="password" placeholder="•••••"></div>
+        <div class="gfield"><label>Repita la contraseña</label><input id="altaClave2" type="password" placeholder="••••••••"></div>
+        <button class="btn" id="btnAlta" type="submit" style="width:100%">Crear y entrar</button>
+      </form>
+      <div class="msg" id="msgAlta"></div>
+    </div>
+
+    <!-- MODO NUBE: ver los datos desde cualquier dispositivo con internet -->
+    <div id="gNube" hidden>
+      <h2>Acceso en la nube</h2>
+      <p class="gsub">Inicie sesión con su correo y contraseña. Sus datos se verán en cualquier dispositivo.</p>
+
+      <!-- iniciar sesión en la nube -->
+      <div id="nbLogin">
+        <form id="formCloudLogin" autocomplete="on">
+          <div class="gfield"><label>Correo electrónico</label><input id="clUser" type="email" autocomplete="username" placeholder="nombre@correo.com"></div>
+          <div class="gfield"><label>Contraseña</label>
+            <div class="pwrow"><input id="clPass" type="password" autocomplete="current-password" placeholder="••••••••"><button class="btn ghost mini" id="btnVerCl" type="button">Ver</button></div>
+          </div>
+          <button class="btn" id="btnCloudLogin" type="submit" style="width:100%">Ingresar</button>
+        </form>
+        <div class="msg" id="clMsg"></div>
+        <p class="glink"><button class="linkbtn" id="btnIrRegistro" type="button">¿No tiene cuenta? Crear una</button></p>
+      </div>
+
+      <!-- crear cuenta en la nube -->
+      <div id="nbRegistro" hidden>
+        <p class="gsub">Cree una cuenta nueva. El <b>primer</b> usuario registrado será el <b>maestro</b> (acceso a Configuraciones).</p>
+        <form id="formCloudSignup" autocomplete="off">
+          <div class="gfield"><label>Nombre y apellido</label><input id="caNombre" placeholder="Jorge de Aguas"></div>
+          <div class="gfield"><label>Correo electrónico</label><input id="caUser" type="email" placeholder="nombre@correo.com"></div>
+          <div class="gfield"><label>Contraseña (mínimo 6)</label><input id="caPass" type="password" placeholder="••••••••"></div>
+          <button class="btn" id="btnCloudSignup" type="submit" style="width:100%">Crear cuenta</button>
+        </form>
+        <div class="msg" id="caMsg"></div>
+        <p class="glink"><button class="linkbtn" id="btnVolverCloudLogin" type="button">← Volver a iniciar sesión</button></p>
+      </div>
+
+      <!-- configuración de la conexión (solo la primera vez) -->
+      <div id="nbConfig" hidden>
+        <p class="gsub">Pegue los datos de su proyecto de nube (los encuentra en la guía LÉEME). Solo se piden una vez por dispositivo.</p>
+        <div class="gfield"><label>Project URL</label><input id="ncUrl" placeholder="https://xxxx.supabase.co"></div>
+        <div class="gfield"><label>Clave pública (anon)</label><input id="ncAnon" placeholder="eyJhbGciOi..."></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn ghost" id="btnNubeProbar" type="button" style="flex:1">Probar</button>
+          <button class="btn" id="btnNubeGuardar" type="button" style="flex:1">Guardar y conectar</button>
+        </div>
+        <div class="msg" id="ncMsg"></div>
+      </div>
+
+      <p class="glink"><button class="linkbtn" id="btnConfigNube" type="button">⚙ Configurar conexión</button> &nbsp;·&nbsp; <button class="linkbtn" id="btnModoLocal" type="button">Usar sin internet (local)</button></p>
+    </div>
+
+    <!-- pie común: entrada a la nube (visible en modo local) -->
+    <p class="glink" id="gatePie" style="margin-top:14px;border-top:1px solid rgba(255,255,255,.08);padding-top:12px"><button class="linkbtn" id="btnIrNube" type="button">☁ Conectar a la nube (ver datos en cualquier móvil)</button></p>
+  </div>
+</div>
+<script src="jspdf.umd.min.js"></script>
+<script src="app.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="nube.js"></script>
+</body>
+</html>
