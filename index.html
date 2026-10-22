@@ -247,7 +247,7 @@
         <!-- Apartado: Registro de usuario -->
         <div class="cfgpane" id="cfg-usuarios">
           <div class="panel">
-            <h3>Crear usuario</h3>
+            <h3 id="usrFormTitle">Crear usuario</h3>
             <p class="hint">Registre a cada persona del equipo con su <b>perfil profesional</b>. Todos pueden hacer historia clínica; lo que define el documento es su <b>especialidad</b> y su <b>firma</b>. Luego defina qué puede hacer en la <b>Matriz de permisos</b>.</p>
             <form id="formUsr" autocomplete="off">
               <p class="hint" id="nuCloudHint" hidden style="background:rgba(0,200,248,.08);border:1px solid rgba(0,200,248,.25);border-radius:10px;padding:8px 10px"><b>Modo nube:</b> cree aquí al profesional con su <b>correo</b> y una <b>contraseña temporal</b>. Entréguele esos dos datos: podrá abrir la app y entrar <b>desde cualquier lugar</b> (otra ciudad, otro celular). Al ingresar, podrá cambiar su contraseña.</p>
@@ -270,7 +270,7 @@
                   <span class="hint">Imagen de la firma con fondo blanco. Aparecerá en los documentos PDF que genere el profesional.</span>
                 </div>
               </div>
-              <div class="actions"><button class="btn" type="submit">Crear usuario</button><span class="msg" id="usrMsg"></span></div>
+              <div class="actions"><button class="btn" id="usrSubmitBtn" type="submit">Crear usuario</button><button class="btn ghost" id="usrCancelEdit" type="button" hidden>Cancelar edición</button><span class="msg" id="usrMsg"></span></div>
             </form>
           </div>
           <div class="panel">

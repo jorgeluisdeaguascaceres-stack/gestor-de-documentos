@@ -760,11 +760,11 @@ function construirDoc(note, titulo, drawBody, opts){
     d.text(String(val||'—'), xl+w, y);
   }
   par(colL,'Paciente',nombre); par(colR,'Documento',tipoDoc+(note.doc||'')); y+=13;
-  par(colL,'Sexo',a.sexo||'—'); par(colR,'Fecha nac.',a.nac||'—'); y+=13;
+  var _edad=edadAnios(a.nac, note.fecha);
+  par(colL,'Sexo',a.sexo||'—'); par(colR,'Fecha nac.', (a.nac||'—') + (_edad ? ('   ·   Edad: '+_edad) : '')); y+=13;
   par(colL,'Dirección',a.dir||'—'); par(colR,'Teléfono',a.tel||'—'); y+=13;
   par(colL,'Empresa',a.eps||'—'); par(colR,'Régimen',a.regimen||'—'); y+=13;
-  var _edad=edadAnios(a.nac, note.fecha);
-  par(colL,'Fecha de atención', fmtFecha(note.fecha) + (_edad ? ('   ·   Edad: '+_edad) : '')); par(colR,'Profesional',note.medico||'—'); y+=6;
+  par(colL,'Fecha de atención', fmtFecha(note.fecha)); par(colR,'Profesional',note.medico||'—'); y+=6;
   d.setDrawColor(LINEA[0],LINEA[1],LINEA[2]); d.setLineWidth(0.8);
   d.rect(ml, boxTop, ancho, y-boxTop);
   y+=8;
@@ -1062,14 +1062,19 @@ function renderUsrList(){
     const ec=document.createElement('td'); const ep=document.createElement('span'); ep.className='pill '+(u.activo?'ok':'off'); ep.textContent=u.activo?'Activo':'Inactivo'; ec.appendChild(ep); tr.appendChild(ec);
     tr.appendChild(td(u.ultimo?fmtFecha(u.ultimo):'Nunca'));
     const acc=document.createElement('td'); acc.className='right';
+    /* botón Editar: disponible para todos (incluido el maestro) para subir/corregir
+       firma y datos del profesional sin tener que borrar y volver a crear el usuario */
+    const be=document.createElement('button'); be.className='btn ghost mini'; be.textContent='Editar';
+    be.addEventListener('click', ()=> usrCargarParaEditar(u.id));
     if(u.rol==='maestro'){
-      const b=document.createElement('span'); b.className='pill gr'; b.textContent='Tú (maestro)'; acc.appendChild(b);
+      const b=document.createElement('span'); b.className='pill gr'; b.textContent='Tú (maestro)'; b.style.marginRight='6px'; acc.appendChild(b);
+      acc.appendChild(be);
     } else {
-      const bt=document.createElement('button'); bt.className='btn ghost mini'; bt.textContent=u.activo?'Desactivar':'Activar';
+      const bt=document.createElement('button'); bt.className='btn ghost mini'; bt.textContent=u.activo?'Desactivar':'Activar'; bt.style.marginLeft='6px';
       bt.addEventListener('click', ()=>{ const l=usuarios(); const t=l.find(x=>x.id===u.id); if(t){t.activo=!t.activo; setUsuarios(l); renderUsrList();} });
       const bd=document.createElement('button'); bd.className='btn del mini'; bd.textContent='Eliminar'; bd.style.marginLeft='6px';
       bd.addEventListener('click', ()=>{ if(confirm('¿Eliminar el usuario '+u.usuario+'?')){ setUsuarios(usuarios().filter(x=>x.id!==u.id)); renderUsr(); renderCrear(); renderUsrList(); } });
-      acc.appendChild(bt); acc.appendChild(bd);
+      acc.appendChild(be); acc.appendChild(bt); acc.appendChild(bd);
     }
     tr.appendChild(acc); tb.appendChild(tr);
   });
@@ -1196,18 +1201,81 @@ let nuFirmaData = null; /* dataURL de la firma cargada */
   });
   quit.addEventListener('click', ()=>{ nuFirmaData=null; file.value=''; prev.hidden=true; prev.removeAttribute('src'); });
 })();
+let usrEditId = null; /* id del usuario que se está editando (null = crear nuevo) */
+
+/* restaura el formulario de usuario a modo "Crear" y limpia los campos */
+function usrLimpiarForm(){
+  usrEditId = null;
+  $('nuUsuario').value=''; $('nuClave').value=''; $('nuNombre').value=''; $('nuDoc').value=''; $('nuRegistro').value=''; if($('nuEspec')) $('nuEspec').selectedIndex=0;
+  if($('nuRol')) $('nuRol').selectedIndex=0;
+  nuFirmaData=null; $('nuFirmaFile').value=''; $('nuFirmaPrev').hidden=true; $('nuFirmaPrev').removeAttribute('src');
+  $('nuUsuario').removeAttribute('readonly');
+  if($('usrFormTitle')) $('usrFormTitle').textContent='Crear usuario';
+  if($('usrSubmitBtn')) $('usrSubmitBtn').textContent='Crear usuario';
+  if($('nuClave').previousElementSibling) $('nuClave').previousElementSibling.classList.add('req');
+  if($('usrCancelEdit')) $('usrCancelEdit').hidden=true;
+}
+
+/* carga los datos de un usuario en el formulario para EDITARLO (sin borrarlo) */
+function usrCargarParaEditar(id){
+  const u = usuarios().find(x=>x.id===id);
+  if(!u){ flash($('usrMsg'),'No se encontró el usuario.','err'); return; }
+  usrEditId = id;
+  $('nuUsuario').value = u.usuario || '';
+  $('nuUsuario').setAttribute('readonly','readonly'); /* el nombre de usuario no se cambia */
+  $('nuClave').value = '';
+  $('nuNombre').value = u.nombre || '';
+  $('nuDoc').value = u.doc || '';
+  $('nuRegistro').value = u.registro || '';
+  if($('nuEspec')) $('nuEspec').value = u.especialidad || '';
+  if($('nuRol')) $('nuRol').value = u.rol || 'administrativo';
+  /* firma: si ya tiene una, se conserva y se muestra; si sube otra la reemplaza */
+  nuFirmaData = u.firma || null;
+  if(u.firma){ $('nuFirmaPrev').src=u.firma; $('nuFirmaPrev').hidden=false; }
+  else { $('nuFirmaPrev').hidden=true; $('nuFirmaPrev').removeAttribute('src'); }
+  $('nuFirmaFile').value='';
+  if($('usrFormTitle')) $('usrFormTitle').textContent='Editar usuario: '+(u.usuario||'');
+  if($('usrSubmitBtn')) $('usrSubmitBtn').textContent='Guardar cambios';
+  if($('nuClave').previousElementSibling) $('nuClave').previousElementSibling.classList.remove('req');
+  if($('usrCancelEdit')) $('usrCancelEdit').hidden=false;
+  flash($('usrMsg'),'Editando a "'+(u.usuario||'')+'". Deje la contraseña en blanco si no la va a cambiar.','ok');
+  const panel=$('cfg-usuarios'); if(panel && panel.scrollIntoView) panel.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+if($('usrCancelEdit')){ $('usrCancelEdit').addEventListener('click', ()=>{ usrLimpiarForm(); flash($('usrMsg'),'Edición cancelada.',''); }); }
+
 $('formUsr').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const usuario=$('nuUsuario').value.trim().toLowerCase(), clave=$('nuClave').value, rol=$('nuRol').value;
   const nombre=$('nuNombre').value.trim(), docn=$('nuDoc').value.trim(), registro=$('nuRegistro').value.trim(), especialidad=$('nuEspec').value;
+
+  /* ---------- MODO EDICIÓN: corregir un usuario existente sin borrarlo ---------- */
+  if(usrEditId){
+    const l=usuarios(); const t=l.find(x=>x.id===usrEditId);
+    if(!t){ flash($('usrMsg'),'No se encontró el usuario a editar.','err'); usrLimpiarForm(); return; }
+    t.nombre=nombre; t.doc=docn; t.registro=registro; t.especialidad=especialidad;
+    t.firma = nuFirmaData||''; /* firma actualizada (o conservada / quitada) */
+    if(rol && rol!==t.rol){ t.rol=rol; t.perms=defaultPerms(rol); } /* si cambia el rol, se reinician sus permisos base */
+    /* contraseña: solo se cambia si escribió una nueva (mínimo 5) */
+    if(clave){
+      if(clave.length<5){ flash($('usrMsg'),'La nueva contraseña debe tener al menos 5 caracteres.','err'); return; }
+      const h=await hashPwd(clave); t.salt=h.salt; t.hash=h.hash;
+      if(CURRENT && CURRENT.id===t.id){ CURRENT.salt=t.salt; CURRENT.hash=t.hash; }
+    }
+    setUsuarios(l);
+    flash($('usrMsg'),'Cambios guardados para "'+t.usuario+'".','ok');
+    usrLimpiarForm(); renderUsr(); renderCrear(); renderUsrList();
+    return;
+  }
+
+  /* ---------- MODO CREAR: alta de un usuario nuevo ---------- */
   if(!/^[a-z0-9._-]{3,}$/.test(usuario)){ flash($('usrMsg'),'Usuario inválido (letras, números, punto, guion).','err'); return; }
   if(clave.length<5){ flash($('usrMsg'),'La contraseña debe tener al menos 5 caracteres.','err'); return; }
   if(usuarios().some(x=>x.usuario===usuario)){ flash($('usrMsg'),'Ese usuario ya existe.','err'); return; }
   const h = await hashPwd(clave);
   const nuevo = { id:uid(), usuario, nombre, doc:docn, registro, especialidad, firma:nuFirmaData||'', rol, activo:true, ultimo:null, salt:h.salt, hash:h.hash, perms:defaultPerms(rol) };
   const l=usuarios(); l.push(nuevo); setUsuarios(l);
-  $('nuUsuario').value=''; $('nuClave').value=''; $('nuNombre').value=''; $('nuDoc').value=''; $('nuRegistro').value=''; $('nuEspec').selectedIndex=0;
-  nuFirmaData=null; $('nuFirmaFile').value=''; $('nuFirmaPrev').hidden=true; $('nuFirmaPrev').removeAttribute('src');
+  usrLimpiarForm();
   flash($('usrMsg'),'Usuario creado con permisos de '+(ROLES[rol]||rol)+'.','ok'); renderUsr(); renderCrear(); renderUsrList();
 });
 
