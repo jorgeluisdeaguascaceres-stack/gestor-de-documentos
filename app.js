@@ -610,6 +610,7 @@ function renderConsulta(lista){
   const tb=$('csTb'); tb.innerHTML='';
   $('csCount').textContent = lista.length + (lista.length===1?' registro':' registros');
   $('csPdf').disabled = lista.length===0;
+  if($('csVer')) $('csVer').disabled = lista.length===0;
   const nombre = lista.length ? lista[0].pac : nombrePorDoc($('csDoc').value.trim());
   $('csPac').textContent = nombre ? ('Paciente: '+nombre+'  ·  Documento: '+$('csDoc').value.trim()) : '';
   if(!lista.length){ const tr=document.createElement('tr'); const c=td('No hay servicios para ese documento en el rango indicado.'); c.colSpan=4; c.className='vacio'; tr.appendChild(c); tb.appendChild(tr); return; }
@@ -632,16 +633,25 @@ $('csServ').addEventListener('change', ()=>{ if($('csDoc').value.trim()){ const 
 if($('csMed')) $('csMed').addEventListener('change', ()=>{ if($('csDoc').value.trim()){ const l=consultaFiltrar(); if(l) renderConsulta(l); } });
 ['csD1','csD2'].forEach(id=>{ if($(id)) $(id).addEventListener('change', ()=>{ if($('csDoc').value.trim()){ const l=consultaFiltrar(); if(l) renderConsulta(l); } }); });
 $('csPdf').addEventListener('click', consultaPDF);
+if($('csVer')) $('csVer').addEventListener('click', consultaVer);
 
-function consultaPDF(){
+function consultaPDF(){ reporteConsulta('descargar'); }
+function consultaVer(){ reporteConsulta('ver'); }
+
+/* Construye el reporte de servicios (el que se envia a la EPS) y, segun el
+   modo, lo ABRE para vista previa en una pestana nueva ('ver') o lo DESCARGA
+   ('descargar'). Cada registro queda firmado y sellado por su profesional
+   (auxiliar, medico o terapeuta). */
+function reporteConsulta(modo){
   if(!csResultados.length){ flash($('csMsg'),'Primero realiza una consulta con resultados.','err'); return; }
   if(!(window.jspdf && window.jspdf.jsPDF)){ flash($('csMsg'),'No se pudo cargar el generador de PDF.','err'); return; }
   const doc=$('csDoc').value.trim();
   const nombre=csResultados[0].pac || nombrePorDoc(doc) || '—';
   const d1=$('csD1').value, d2=$('csD2').value, serv=$('csServ').value;
   const med=$('csMed')?$('csMed').value:'';
-  /* nota sintética: reutiliza el mismo encabezado + ficha de paciente
-     (desde la admisión) que la historia clínica; sin firma única. */
+  /* nota sintetica: reutiliza el mismo encabezado + ficha de paciente
+     (desde la admision) que la historia clinica. La firma unica del pie se
+     omite (sinFirma) porque cada registro lleva SU propia firma y sello. */
   const synth={ doc:doc, pac:nombre, fecha:new Date().toISOString(), medico:(med||''), firma:'' };
   const { d } = construirDoc(synth, 'Reporte de servicios clínicos domiciliarios', (ctx)=>{
     ctx.band('Parámetros del reporte');
@@ -655,16 +665,27 @@ function consultaPDF(){
       ctx.campo('Profesional', n.medico||'—');
       if(n.especialidad){ ctx.campo('Especialidad', n.especialidad); }
       if(n.registro){ ctx.campo('Registro médico', n.registro); }
-      /* Historia clínica: imprimir el cuerpo COMPLETO (Motivo → Plan),
-         es la que se envía a la EPS para el cobro. El resto de notas
+      /* Historia clinica: imprimir el cuerpo COMPLETO (Motivo -> Plan),
+         es la que se envia a la EPS para el cobro. El resto de notas
          conservan el resumen de texto. */
       if(esHC(n.tipo)){ cuerpoHistoria(ctx, n.hc||{}); }
       else { ctx.campo('Contenido', (n.texto&&n.texto.trim())?n.texto:'(sin contenido)'); }
+      /* firma + sello del profesional que firmo ESTE registro */
+      ctx.firma(n);
     });
   }, { sinFirma:true });
   const safe=(nombre||'paciente').replace(/[^a-z0-9]+/gi,'_').replace(/^_+|_+$/g,'').toLowerCase();
-  d.save('reporte_'+(doc||'doc')+'_'+safe+'.pdf');
-  flash($('csMsg'),'PDF generado.','ok');
+  if(modo==='ver'){
+    try{
+      const url=d.output('bloburl');
+      const w=window.open(url,'_blank');
+      if(!w){ flash($('csMsg'),'El navegador bloqueó la ventana. Permita las ventanas emergentes o use Descargar PDF.','err'); return; }
+      flash($('csMsg'),'Vista previa abierta en otra pestaña.','ok');
+    }catch(_){ flash($('csMsg'),'No se pudo abrir la vista previa. Use Descargar PDF.','err'); }
+  }else{
+    d.save('reporte_'+(doc||'doc')+'_'+safe+'.pdf');
+    flash($('csMsg'),'PDF generado.','ok');
+  }
 }
 
 /* obtiene la admisión (datos demográficos) de un paciente por documento */
@@ -768,27 +789,39 @@ function construirDoc(note, titulo, drawBody, opts){
   d.rect(ml, boxTop, ancho, y-boxTop);
   y+=8;
 
-  /* ---------- cuerpo ---------- */
-  drawBody({ band, campo });
-
-  /* ---------- firma del profesional ---------- */
-  if(!opts.sinFirma){
-  nl(80); y+=18;
-  const fx=ml+4;
-  if(note.firma && /^data:image\/(png|jpeg)/.test(note.firma)){
-    try{
-      const fmt=/^data:image\/png/.test(note.firma)?'PNG':'JPEG';
-      let fw=150, fh=52;
-      try{ const pr=d.getImageProperties(note.firma); if(pr&&pr.width&&pr.height){ fh=Math.min(56, fw*pr.height/pr.width); } }catch(_){}
-      d.addImage(note.firma, fmt, fx, y-fh, fw, fh);
-    }catch(_){ }
+  /* ---------- bloque de firma + sello (reutilizable por registro) ----------
+     Dibuja la firma digital (imagen), el nombre, el cargo/especialidad y el
+     registro/sello profesional de QUIEN firma. Se usa tanto para la firma
+     unica al pie de la historia clinica como para firmar CADA registro del
+     reporte que se envia a la EPS (auxiliar, medico, terapeuta, etc.). */
+  function firmaBloque(n){
+    n=n||note;
+    nl(82); y+=16;
+    const fx=ml+4;
+    if(n.firma && /^data:image\/(png|jpeg)/.test(n.firma)){
+      try{
+        const fmt=/^data:image\/png/.test(n.firma)?'PNG':'JPEG';
+        let fw=150, fh=52;
+        try{ const pr=d.getImageProperties(n.firma); if(pr&&pr.width&&pr.height){ fh=Math.min(56, fw*pr.height/pr.width); } }catch(_){}
+        d.addImage(n.firma, fmt, fx, y-fh, fw, fh);
+      }catch(_){ }
+    }
+    d.setDrawColor(INK[0],INK[1],INK[2]); d.setLineWidth(0.8); d.line(fx, y, fx+220, y); y+=12;
+    d.setFont('helvetica','bold'); d.setFontSize(9.5); d.setTextColor(INK[0],INK[1],INK[2]);
+    d.text((n.medico||'—'), fx, y); y+=12;
+    d.setFont('helvetica','normal'); d.setFontSize(8.5); d.setTextColor(GRIS[0],GRIS[1],GRIS[2]);
+    if(n.especialidad){ d.text(n.especialidad, fx, y); y+=11; }
+    if(n.registro){ d.text('Registro / sello: '+n.registro, fx, y); y+=11; }
+    else { d.text('Firma y sello', fx, y); y+=11; }
+    y+=6;
   }
-  d.setDrawColor(INK[0],INK[1],INK[2]); d.setLineWidth(0.8); d.line(fx, y, fx+200, y); y+=12;
-  d.setFont('helvetica','bold'); d.setFontSize(9.5); d.setTextColor(INK[0],INK[1],INK[2]);
-  d.text((note.medico||'—'), fx, y); y+=12;
-  d.setFont('helvetica','normal'); d.setFontSize(8.5); d.setTextColor(GRIS[0],GRIS[1],GRIS[2]);
-  if(note.especialidad){ d.text(note.especialidad, fx, y); y+=11; }
-  if(note.registro){ d.text('Registro médico: '+note.registro, fx, y); y+=11; }
+
+  /* ---------- cuerpo ---------- */
+  drawBody({ band, campo, firma: firmaBloque });
+
+  /* ---------- firma del profesional (pie) ---------- */
+  if(!opts.sinFirma){
+    firmaBloque(note);
   }
 
   /* ---------- pie con numeración ---------- */
