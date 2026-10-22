@@ -766,10 +766,10 @@ function construirDoc(note, titulo, drawBody, opts){
   if(ips.logo && /^data:image\/(png|jpeg)/.test(ips.logo)){
     try{
       const fmt=/^data:image\/png/.test(ips.logo)?'PNG':'JPEG';
-      let lw=52, lh=52;
-      try{ const pr=d.getImageProperties(ips.logo); if(pr&&pr.width&&pr.height){ lw=Math.min(64, 52*pr.width/pr.height); lh=52; if(lw>72){ lw=72; lh=72*pr.height/pr.width; } } }catch(_){}
+      let lw=62, lh=62;
+      try{ const pr=d.getImageProperties(ips.logo); if(pr&&pr.width&&pr.height){ lw=Math.min(76, 62*pr.width/pr.height); lh=62; if(lw>86){ lw=86; lh=86*pr.height/pr.width; } } }catch(_){}
       d.addImage(ips.logo, fmt, ml, y-2, lw, lh);
-      txtX=ml+lw+12;
+      txtX=ml+lw+20;
     }catch(_){ }
   }
   d.setFont('helvetica','bold'); d.setFontSize(15); d.setTextColor(11,22,34);
@@ -784,7 +784,7 @@ function construirDoc(note, titulo, drawBody, opts){
   if(ips.ciudad) subLineas.push(ips.ciudad);
   subLineas.forEach(function(ln){ d.text(ln, txtX, y); y+=11; });
   if(!ips.nombre && !subLineas.length){ y+=16; }
-  if(y < mt+54){ y = mt+54; }
+  if(y < mt+66){ y = mt+66; }
   d.setDrawColor(LINEA[0],LINEA[1],LINEA[2]); d.setLineWidth(0.8); d.line(ml,y,pw-mr,y); y+=4;
   d.setFont('helvetica','bold'); d.setFontSize(11.5); d.setTextColor(11,22,34);
   d.text(String(titulo).toUpperCase(), pw/2, y+12, {align:'center'}); y+=22;
