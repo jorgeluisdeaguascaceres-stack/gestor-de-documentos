@@ -29,7 +29,35 @@ const TIPOS = {
   '.woff2':'font/woff2'
 };
 
+/* Cabeceras de seguridad aplicadas a TODA respuesta. */
+const SEGURIDAD = {
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'Referrer-Policy': 'no-referrer',
+  'Strict-Transport-Security': 'max-age=15552000; includeSubDomains',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+  'Content-Security-Policy': [
+    "default-src 'self'",
+    "script-src 'self' https://cdn.jsdelivr.net",
+    "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+    "img-src 'self' data: blob:",
+    "style-src 'self' 'unsafe-inline'",
+    "font-src 'self' data:",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "frame-ancestors 'none'",
+    "form-action 'self'"
+  ].join('; ')
+};
+function aplicarSeguridad(res){ for(var k in SEGURIDAD){ try{ res.setHeader(k, SEGURIDAD[k]); }catch(_){ } } }
+
 const server = http.createServer((req, res) => {
+  /* Escudos de seguridad del navegador (no afectan el funcionamiento de la
+     app; solo endurecen cómo el navegador trata la página). La CSP permite
+     exactamente lo que la app necesita: scripts propios + supabase-js (CDN),
+     conexión a la nube Supabase (REST y tiempo real), e imágenes de
+     firma/logo en base64. */
+  aplicarSeguridad(res);
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     res.writeHead(405); res.end('Method Not Allowed'); return;
   }
