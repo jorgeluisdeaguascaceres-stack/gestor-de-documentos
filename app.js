@@ -334,6 +334,7 @@ $('admLimpiar').addEventListener('click', ()=>{ limpiarAdm(false); cancelarEdici
    ============================================================ */
 let regTipo = null;          /* tipo de nota elegido */
 let regPac  = null;          /* {nombre, doc} paciente resuelto */
+let regMesSel = null;        /* mes elegido en el filtro: 'AAAA-MM' o 'todos' */
 let editNotaId = null;       /* id de la nota en edición (modal) */
 let soloLectura = false;     /* true cuando se abre una nota en modo ver (sin permiso de crear) */
 
@@ -356,7 +357,7 @@ function regMostrarTipos(){
 }
 /* abre el panel de un tipo concreto */
 function regAbrirTipo(tipo){
-  regTipo=tipo; regPac=null;
+  regTipo=tipo; regPac=null; regMesSel=null;
   $('regTipoTit').textContent=tipo;
   $('regBuscar').value=''; $('regPacNom').value=''; $('regPacDoc').value='';
   $('regNueva').disabled=true; flash($('regMsg'),'');
@@ -368,6 +369,7 @@ function regAbrirTipo(tipo){
 }
 $('regTipoList').addEventListener('click', (e)=>{ const b=e.target.closest('[data-tipo]'); if(b) regAbrirTipo(b.getAttribute('data-tipo')); });
 $('regVolver').addEventListener('click', regMostrarTipos);
+if($('regMes')) $('regMes').addEventListener('change', ()=>{ regMesSel=$('regMes').value; renderReg(); });
 
 /* resuelve el texto de búsqueda a un paciente */
 function resolverPaciente(txt){
@@ -383,6 +385,7 @@ function resolverPaciente(txt){
 }
 function aplicarBusqueda(){
   const p=resolverPaciente($('regBuscar').value);
+  regMesSel=null;
   if(p){ regPac=p; $('regPacNom').value=p.nombre||'—'; $('regPacDoc').value=p.doc; $('regNueva').disabled=!puedeCrear(regTipo); flash($('regMsg'), puedeCrear(regTipo)?'':'Su perfil puede VER estas notas pero no crearlas ni editarlas (solo lectura).', puedeCrear(regTipo)?'':'warn'); }
   else { regPac=null; $('regPacNom').value=''; $('regPacDoc').value=''; $('regNueva').disabled=true; }
   actualizarBotonQuitarPac();
@@ -412,14 +415,46 @@ $('regBuscar').addEventListener('change', aplicarBusqueda);
 $('regBuscar').addEventListener('input', ()=>{ /* autocompleta al elegir del listado */ if(resolverPaciente($('regBuscar').value)) aplicarBusqueda(); });
 if($('regQuitarPac')) $('regQuitarPac').addEventListener('click', quitarPacienteActual);
 
+/* ---- filtro por mes de la lista "Notas anteriores" (aplica a TODOS los tipos) ---- */
+const MESES_F=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+function mesKey(iso){ const d=new Date(iso); if(isNaN(d)) return ''; return d.getFullYear()+'-'+(d.getMonth()<9?'0':'')+(d.getMonth()+1); }
+function mesLabel(key){ const p=String(key).split('-'); const mi=(+p[1])-1; return (MESES_F[mi]||'')+' '+p[0]; }
+
 function renderReg(){
   const tb=$('regTb'); if(!tb) return; tb.innerHTML='';
-  let lista=[];
-  if(regPac){ lista=store.get('notas',[]).filter(n=> (n.doc||'').trim()===regPac.doc && n.tipo===regTipo); }
-  lista.sort((a,b)=> (b.fecha||'').localeCompare(a.fecha||''));
+  const selMes=$('regMes');
+  let todas=[];
+  if(regPac){ todas=store.get('notas',[]).filter(n=> (n.doc||'').trim()===regPac.doc && n.tipo===regTipo); }
+  todas.sort((a,b)=> (b.fecha||'').localeCompare(a.fecha||''));
+
+  /* meses con notas (más reciente primero) */
+  const meses=[]; todas.forEach(n=>{ const k=mesKey(n.fecha); if(k && meses.indexOf(k)<0) meses.push(k); });
+
+  /* mes en curso del sistema */
+  const hoy=new Date(); const curKey=hoy.getFullYear()+'-'+(hoy.getMonth()<9?'0':'')+(hoy.getMonth()+1);
+
+  /* selección: respetar la del usuario si sigue siendo válida; por defecto,
+     el mes en curso cuando tiene notas; si no, "Todos los meses" (así nunca
+     parece que se perdieron datos) */
+  if(regMesSel && regMesSel!=='todos' && meses.indexOf(regMesSel)<0) regMesSel=null;
+  if(regMesSel===null){ regMesSel = (meses.indexOf(curKey)>=0) ? curKey : 'todos'; }
+
+  /* repoblar el selector de meses */
+  if(selMes){
+    selMes.innerHTML='';
+    const oAll=document.createElement('option'); oAll.value='todos'; oAll.textContent='Todos los meses'; selMes.appendChild(oAll);
+    meses.forEach(k=>{ const o=document.createElement('option'); o.value=k; o.textContent=mesLabel(k); selMes.appendChild(o); });
+    selMes.value=regMesSel;
+    selMes.disabled = !regPac || !meses.length;
+  }
+
+  /* notas visibles según el mes elegido */
+  const lista = (regMesSel==='todos') ? todas.slice() : todas.filter(n=> mesKey(n.fecha)===regMesSel);
+
   $('regCount').textContent = lista.length + (lista.length===1?' registro':' registros');
   if(!regPac){ const tr=document.createElement('tr'); const c=td('Busque un paciente para ver sus notas.'); c.colSpan=4; c.className='vacio'; tr.appendChild(c); tb.appendChild(tr); return; }
-  if(!lista.length){ const tr=document.createElement('tr'); const c=td('Este paciente aún no tiene notas de este tipo.'); c.colSpan=4; c.className='vacio'; tr.appendChild(c); tb.appendChild(tr); return; }
+  if(!todas.length){ const tr=document.createElement('tr'); const c=td('Este paciente aún no tiene notas de este tipo.'); c.colSpan=4; c.className='vacio'; tr.appendChild(c); tb.appendChild(tr); return; }
+  if(!lista.length){ const tr=document.createElement('tr'); const c=td('No hay notas en el mes elegido. Cambie el mes o elija “Todos los meses”.'); c.colSpan=4; c.className='vacio'; tr.appendChild(c); tb.appendChild(tr); return; }
   lista.forEach(n=>{
     const tr=document.createElement('tr');
     tr.appendChild(td(fmtFecha(n.fecha)));
