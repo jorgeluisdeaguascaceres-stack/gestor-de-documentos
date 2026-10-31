@@ -1533,6 +1533,101 @@ if($('epsLimpiar')) $('epsLimpiar').addEventListener('click', ()=>{ epsLimpiarFo
   window.addEventListener('resize', cerrar);
 })();
 
+/* ============================================================
+   FECHA + HORA EMERGENTE · con botón "Aceptar" para confirmar
+   Se engancha a cualquier input .dtpick (texto, readonly).
+   El valor del input queda como AAAA-MM-DDTHH:MM (igual que un
+   datetime-local), así NO se rompe el guardado existente.
+   El usuario elige fecha + hora y confirma con "Aceptar": ya no
+   hay que hacer clic fuera de la página.
+   ============================================================ */
+(function(){
+  const MESES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const DOW=['Lu','Ma','Mi','Ju','Vi','Sá','Do'];
+  let pop=null, target=null, view=null, selDay=null, hSel=null, mSel=null;
+
+  function pad(n){ return (n<10?'0':'')+n; }
+  function dIso(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+  function parse(v){ const m=/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/.exec(v||''); if(!m) return null; const d=new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5]); return isNaN(d)?null:d; }
+
+  function build(){
+    pop=document.createElement('div'); pop.className='cal cal-dt'; pop.hidden=true;
+    const head=document.createElement('div'); head.className='cal-head';
+    const prev=document.createElement('button'); prev.type='button'; prev.className='cal-nav'; prev.textContent='‹';
+    const title=document.createElement('span'); title.className='cal-title';
+    const next=document.createElement('button'); next.type='button'; next.className='cal-nav'; next.textContent='›';
+    head.appendChild(prev); head.appendChild(title); head.appendChild(next);
+    const dow=document.createElement('div'); dow.className='cal-dow';
+    DOW.forEach(x=>{ const s=document.createElement('span'); s.textContent=x; dow.appendChild(s); });
+    const grid=document.createElement('div'); grid.className='cal-grid';
+    const tr=document.createElement('div'); tr.className='cal-time';
+    const lab=document.createElement('label'); lab.textContent='Hora:';
+    hSel=document.createElement('select');
+    for(let h=0;h<24;h++){ const o=document.createElement('option'); o.value=h; o.textContent=pad(h); hSel.appendChild(o); }
+    const sep=document.createElement('span'); sep.className='cal-sep'; sep.textContent=':';
+    mSel=document.createElement('select');
+    for(let mi=0;mi<60;mi++){ const o=document.createElement('option'); o.value=mi; o.textContent=pad(mi); mSel.appendChild(o); }
+    tr.appendChild(lab); tr.appendChild(hSel); tr.appendChild(sep); tr.appendChild(mSel);
+    const foot=document.createElement('div'); foot.className='cal-foot';
+    const borrar=document.createElement('button'); borrar.type='button'; borrar.className='btn ghost'; borrar.textContent='Borrar';
+    const ahora=document.createElement('button'); ahora.type='button'; ahora.className='btn ghost'; ahora.textContent='Ahora';
+    const aceptar=document.createElement('button'); aceptar.type='button'; aceptar.className='btn'; aceptar.textContent='Aceptar';
+    foot.appendChild(borrar); foot.appendChild(ahora); foot.appendChild(aceptar);
+    pop.appendChild(head); pop.appendChild(dow); pop.appendChild(grid); pop.appendChild(tr); pop.appendChild(foot);
+    document.body.appendChild(pop);
+
+    prev.addEventListener('click', ()=>{ view.setMonth(view.getMonth()-1); paint(title, grid); });
+    next.addEventListener('click', ()=>{ view.setMonth(view.getMonth()+1); paint(title, grid); });
+    borrar.addEventListener('click', ()=>{ if(target){ target.value=''; target.dispatchEvent(new Event('change',{bubbles:true})); } cerrar(); });
+    ahora.addEventListener('click', ()=>{ const n=new Date(); selDay=new Date(n.getFullYear(),n.getMonth(),n.getDate()); view=new Date(selDay); hSel.value=n.getHours(); mSel.value=n.getMinutes(); paint(title, grid); });
+    aceptar.addEventListener('click', ()=>{ if(target){ if(selDay){ target.value=dIso(selDay)+'T'+pad(+hSel.value)+':'+pad(+mSel.value); } target.dispatchEvent(new Event('change',{bubbles:true})); } cerrar(); });
+    pop._title=title; pop._grid=grid;
+  }
+
+  function paint(title, grid){
+    const y=view.getFullYear(), m=view.getMonth();
+    title.textContent=MESES[m]+' '+y;
+    grid.textContent='';
+    const first=new Date(y,m,1);
+    let start=first.getDay(); start=(start===0)?6:start-1; /* lunes primero */
+    const diasMes=new Date(y,m+1,0).getDate();
+    const hoy=dIso(new Date());
+    for(let i=0;i<start;i++){ const b=document.createElement('button'); b.type='button'; b.className='cal-day muted'; b.textContent=''; b.disabled=true; grid.appendChild(b); }
+    for(let d=1;d<=diasMes;d++){
+      const cur=new Date(y,m,d); const ciso=dIso(cur);
+      const b=document.createElement('button'); b.type='button'; b.className='cal-day'; b.textContent=String(d);
+      if(ciso===hoy) b.classList.add('today');
+      if(selDay && dIso(selDay)===ciso) b.classList.add('sel');
+      b.addEventListener('click', ()=>{ selDay=cur; grid.querySelectorAll('.cal-day.sel').forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); });
+      grid.appendChild(b);
+    }
+  }
+
+  function abrir(inp){
+    if(!pop) build();
+    target=inp;
+    const base=parse(inp.value)||new Date();
+    selDay=new Date(base.getFullYear(), base.getMonth(), base.getDate());
+    hSel.value=base.getHours(); mSel.value=base.getMinutes();
+    view=new Date(base.getFullYear(), base.getMonth(), 1);
+    paint(pop._title, pop._grid);
+    pop.hidden=false;
+    const r=inp.getBoundingClientRect();
+    let top=r.bottom+window.scrollY+6, left=r.left+window.scrollX;
+    const pw=280; if(left+pw>window.scrollX+document.documentElement.clientWidth-8){ left=window.scrollX+document.documentElement.clientWidth-pw-8; }
+    if(left<window.scrollX+8) left=window.scrollX+8;
+    pop.style.top=top+'px'; pop.style.left=left+'px';
+  }
+  function cerrar(){ if(pop){ pop.hidden=true; } target=null; }
+
+  document.addEventListener('click', (e)=>{
+    const dp=e.target.closest && e.target.closest('.dtpick');
+    if(dp){ e.preventDefault(); abrir(dp); return; }
+    if(pop && !pop.hidden && !(e.target.closest && e.target.closest('.cal-dt'))){ cerrar(); }
+  });
+  window.addEventListener('resize', cerrar);
+})();
+
 /* ---------- arranque ---------- */
 function init(){
   const now = new Date(); now.setMinutes(now.getMinutes()-now.getTimezoneOffset());
