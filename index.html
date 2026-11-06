@@ -483,13 +483,14 @@
           <div class="grid">
             <div class="wide"><label>Paraclínicos solicitados (uno por línea)</label><textarea id="hcPara" rows="2" placeholder="Hemograma&#10;Uroanálisis"></textarea></div>
           </div>
-          <h4 class="sechc">Órdenes médicas <span class="hcsep">· documento aparte</span></h4>
-          <div class="grid">
-            <div class="wide"><label>Órdenes médicas (una por línea)</label><textarea id="hcOrdenes" rows="2" placeholder="Oxigenoterapia&#10;Curación diaria"></textarea></div>
-          </div>
           <h4 class="sechc">Fórmula médica <span class="hcsep">· documento aparte</span></h4>
           <div class="grid">
             <div class="wide"><label>Medicamentos (uno por línea: nombre, dosis, vía, frecuencia)</label><textarea id="hcFormula" rows="3" placeholder="Acetaminofén 500 mg vía oral cada 8 horas por 3 días"></textarea></div>
+          </div>
+          <h4 class="sechc">Órdenes médicas <span class="hcsep">· documento aparte</span> <button type="button" class="normall" id="hcOrdenAdd" title="Agregar otra orden médica. Cada orden se descarga como un soporte PDF aparte.">＋ Otra orden</button></h4>
+          <p class="hint" style="margin:0 0 8px">El médico puede dejar varias órdenes distintas. Use <b>＋ Otra orden</b> para agregar una nueva: cada orden se guarda y se descarga como un <b>soporte aparte</b>.</p>
+          <div class="grid">
+            <div class="wide" id="hcOrdenesWrap"></div>
           </div>
         </div>
 

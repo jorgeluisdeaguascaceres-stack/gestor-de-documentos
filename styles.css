@@ -276,3 +276,10 @@ td.cellwrap{white-space:normal;max-width:360px;line-height:1.4;color:var(--txt)}
 .nube-estado.nube-check{background:rgba(120,135,150,.12);color:#9fb0c0;border-color:rgba(120,135,150,.25)}
 .nube-estado.nube-ok{background:rgba(45,212,191,.12);color:#2dd4bf;border-color:rgba(45,212,191,.35)}
 .nube-estado.nube-off{background:rgba(255,170,60,.12);color:#ffb84d;border-color:rgba(255,170,60,.4)}
+
+/* Órdenes médicas · varios soportes (botón ＋ Otra orden) */
+#hcOrdenAdd{margin-left:8px}
+#hcOrdenesWrap .hcOrdenItem{border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:8px 10px;margin-bottom:8px;background:rgba(255,255,255,.02)}
+#hcOrdenesWrap .hcOrdenBar{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+#hcOrdenesWrap .hcOrdenTag{font-weight:600;color:#9fe8ff;font-size:.85rem}
+#hcOrdenesWrap .hcOrden{width:100%}

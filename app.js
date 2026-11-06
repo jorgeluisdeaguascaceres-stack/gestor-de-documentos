@@ -495,7 +495,7 @@ function renderReg(){
 /* campos del formulario estructurado de Historia Clínica */
 const HC_FIELDS = ['hcMotivo','hcEnf','hcTA','hcFC','hcFR','hcT','hcSat','hcPeso','hcTalla','hcIMC',
   'hcDxNut','hcAntPer','hcAntFam','hcAlerg','hcQuir','hcGineco','hcExGen','hcExCab','hcExTorax',
-  'hcExAbd','hcExGen2','hcExExt','hcExSNC','hcExPiel','hcDx','hcPlan','hcPara','hcOrdenes','hcFormula'];
+  'hcExAbd','hcExGen2','hcExExt','hcExSNC','hcExPiel','hcDx','hcPlan','hcPara','hcFormula'];
 /* textos "normal" predeterminados del examen físico */
 const HC_NORMALES = {
   hcExGen:'Paciente en buen estado general, consciente, orientado en las tres esferas, hidratado, afebril, con adecuada perfusión.',
@@ -523,9 +523,48 @@ function hcToggle(tipo){
   const modal=$('ovNota')&&$('ovNota').querySelector('.modal');
   if(modal) modal.classList.toggle('hc', on);
 }
-function hcFill(hc){ hc=hc||{}; HC_FIELDS.forEach(id=>{ const el=$(id); if(el) el.value=hc[id]||''; }); }
-function hcClear(){ HC_FIELDS.forEach(id=>{ const el=$(id); if(el) el.value=''; }); }
-function hcCollect(){ const o={}; HC_FIELDS.forEach(id=>{ const el=$(id); o[id]=el?(el.value||'').trim():''; }); return o; }
+function hcFill(hc){
+  hc=hc||{};
+  HC_FIELDS.forEach(id=>{ const el=$(id); if(el) el.value=hc[id]||''; });
+  /* órdenes médicas: varios soportes. Compatibilidad con notas antiguas (un solo campo hcOrdenes). */
+  let lista = Array.isArray(hc.hcOrdenesLista) ? hc.hcOrdenesLista.slice()
+            : ((hc.hcOrdenes!=null && hc.hcOrdenes!=='') ? [hc.hcOrdenes] : []);
+  hcOrdenesRender(lista.length?lista:['']);
+}
+function hcClear(){ HC_FIELDS.forEach(id=>{ const el=$(id); if(el) el.value=''; }); hcOrdenesRender(['']); }
+function hcCollect(){ const o={}; HC_FIELDS.forEach(id=>{ const el=$(id); o[id]=el?(el.value||'').trim():''; }); o.hcOrdenesLista=hcOrdenesCollect(); return o; }
+
+/* ---- Órdenes médicas: cada bloque es un soporte aparte; el botón ＋ agrega otro ---- */
+function hcOrdenesCollect(){
+  const wrap=$('hcOrdenesWrap'); if(!wrap) return [];
+  return Array.from(wrap.querySelectorAll('.hcOrden')).map(t=>(t.value||'').trim()).filter(Boolean);
+}
+function hcOrdenRenum(){
+  const wrap=$('hcOrdenesWrap'); if(!wrap) return;
+  const items=wrap.querySelectorAll('.hcOrdenItem'); const varias=items.length>1;
+  items.forEach((it,i)=>{
+    const tag=it.querySelector('.hcOrdenTag'); if(tag) tag.textContent= varias?('Orden médica '+(i+1)):'Orden médica';
+    const q=it.querySelector('.hcOrdenQuitar'); if(q) q.style.display= varias?'':'none';
+  });
+}
+function hcOrdenMakeBlock(valor){
+  const wrap=$('hcOrdenesWrap'); if(!wrap) return;
+  const item=document.createElement('div'); item.className='hcOrdenItem';
+  const bar=document.createElement('div'); bar.className='hcOrdenBar';
+  const tag=document.createElement('span'); tag.className='hcOrdenTag'; tag.textContent='Orden médica'; bar.appendChild(tag);
+  const quitar=document.createElement('button'); quitar.type='button'; quitar.className='btn ghost mini hcOrdenQuitar'; quitar.textContent='Quitar';
+  quitar.addEventListener('click', ()=>{ item.remove(); hcOrdenRenum(); });
+  bar.appendChild(quitar);
+  const ta=document.createElement('textarea'); ta.className='hcOrden'; ta.rows=2; ta.placeholder='Oxigenoterapia\nCuración diaria'; ta.value=valor||'';
+  item.appendChild(bar); item.appendChild(ta); wrap.appendChild(item);
+}
+function hcOrdenesRender(lista){
+  const wrap=$('hcOrdenesWrap'); if(!wrap) return;
+  wrap.innerHTML='';
+  (lista&&lista.length?lista:['']).forEach(v=> hcOrdenMakeBlock(v));
+  hcOrdenRenum();
+}
+(function(){ const b=$('hcOrdenAdd'); if(b) b.addEventListener('click', ()=>{ hcOrdenMakeBlock(''); hcOrdenRenum(); const w=$('hcOrdenesWrap'); if(w){ const tas=w.querySelectorAll('.hcOrden'); const last=tas[tas.length-1]; if(last) last.focus(); } }); })();
 function hcCalcIMC(){
   const p=parseFloat(($('hcPeso').value||'').replace(',','.'));
   const t=parseFloat(($('hcTalla').value||'').replace(',','.'));
@@ -571,6 +610,7 @@ function aplicarSoloLectura(ro){
   const editables=['ntMed','ntTexto','ntFecha'].concat(HC_FIELDS);
   editables.forEach(id=>{ const el=$(id); if(el) el.disabled=!!ro; });
   document.querySelectorAll('#formNota .normbtn, #formNota .normall').forEach(b=> b.disabled=!!ro);
+  document.querySelectorAll('#hcOrdenesWrap .hcOrden, #hcOrdenesWrap .hcOrdenQuitar').forEach(el=> el.disabled=!!ro);
   const g=$('notaGuardar'); if(g) g.hidden=!!ro;
   const c=$('notaCancel'); if(c) c.textContent = ro?'Cerrar':'Cancelar';
 }
@@ -960,12 +1000,24 @@ function generarExtra(note, titulo, contenido, prefijo){
 }
 
 /* lista de documentos aparte presentes en una nota */
+/* lista de órdenes médicas (varios soportes), con compatibilidad hacia notas antiguas */
+function ordenesDeHc(hc){
+  hc=hc||{};
+  let lista = Array.isArray(hc.hcOrdenesLista) ? hc.hcOrdenesLista.slice()
+            : ((hc.hcOrdenes!=null) ? [hc.hcOrdenes] : []);
+  return lista.map(s=>(s||'').trim()).filter(Boolean);
+}
 function extrasDeNota(hc){
   hc=hc||{};
   const out=[];
-  if((hc.hcPara||'').trim())    out.push({titulo:'Paraclínicos',  campo:'hcPara',    prefijo:'paraclinicos'});
-  if((hc.hcOrdenes||'').trim()) out.push({titulo:'Orden médica',  campo:'hcOrdenes', prefijo:'orden_medica'});
-  if((hc.hcFormula||'').trim()) out.push({titulo:'Fórmula médica',campo:'hcFormula', prefijo:'formula_medica'});
+  if((hc.hcPara||'').trim())    out.push({titulo:'Paraclínicos',  prefijo:'paraclinicos',   contenido:hc.hcPara});
+  if((hc.hcFormula||'').trim()) out.push({titulo:'Fórmula médica',prefijo:'formula_medica', contenido:hc.hcFormula});
+  const ordenes=ordenesDeHc(hc); const varias=ordenes.length>1;
+  ordenes.forEach((txt,i)=>{
+    out.push({ titulo: varias?('Orden médica '+(i+1)):'Orden médica',
+               prefijo: varias?('orden_medica_'+(i+1)):'orden_medica',
+               contenido: txt });
+  });
   return out;
 }
 
@@ -976,7 +1028,7 @@ function historiaClinicaPDF(id){
   if(!(window.jspdf && window.jspdf.jsPDF)){ flash($('regMsg'),'No se pudo cargar el generador de PDF.','err'); return; }
   const hc=n.hc||{};
   generarHistoria(n);
-  extrasDeNota(hc).forEach(e=> generarExtra(n, e.titulo, hc[e.campo], e.prefijo));
+  extrasDeNota(hc).forEach(e=> generarExtra(n, e.titulo, e.contenido, e.prefijo));
   const extra=extrasDeNota(hc).length;
   flash($('regMsg'), 'PDF generado'+(extra?(' + '+extra+' documento(s) aparte'):'')+'.', 'ok');
 }
@@ -1024,7 +1076,7 @@ function hcPreview(id){
   // tarjetas de documentos aparte
   extrasDeNota(hc).forEach(e=>{
     docs.appendChild(prevTarjeta(e.titulo+'  (documento aparte)', nombre, n, (card)=>{
-      prevSeccion(card,'', hc[e.campo]);
+      prevSeccion(card,'', e.contenido);
     }));
   });
 
@@ -1034,7 +1086,7 @@ function hcPreview(id){
   acts.appendChild(bH);
   extrasDeNota(hc).forEach(e=>{
     const bt=document.createElement('button'); bt.className='btn ghost mini'; bt.textContent='Descargar '+e.titulo.toLowerCase();
-    bt.addEventListener('click', ()=> generarExtra(n, e.titulo, hc[e.campo], e.prefijo));
+    bt.addEventListener('click', ()=> generarExtra(n, e.titulo, e.contenido, e.prefijo));
     acts.appendChild(bt);
   });
   const bAll=document.createElement('button'); bAll.className='btn mini'; bAll.textContent='Descargar todo';
