@@ -234,7 +234,7 @@ td.cellwrap{white-space:normal;max-width:360px;line-height:1.4;color:var(--txt)}
 }
 #regPanel .ptop .btn.mini{flex:0 0 auto}
 #regNueva:disabled{opacity:.45;cursor:not-allowed}
-#regPacNom,#regPacDoc{background:#0c1a29;font-weight:600}
+#regPacNom,#regPacDoc,#ntMed{background:#0c1a29;font-weight:600}
 
 /* ---------- filtros de consulta compactos (una sola línea en PC) ---------- */
 .csfiltros{grid-template-columns:1.1fr 1.5fr 1.5fr .9fr .9fr;gap:10px}
