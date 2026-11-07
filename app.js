@@ -574,9 +574,10 @@ function llenarDatalist(idDL, arr){
 }
 /* Conecta un buscador CUPS a un textarea destino: al elegir una opción del
    listado (o escribir y salir), agrega la línea al textarea y limpia el buscador. */
-function cupsWire(input, destino){
+function cupsWire(input, destino, catalogo){
   if(!input || !destino) return;
-  const valores = new Set((window.CUPS||[]).map(catTexto));
+  const lista = Array.isArray(catalogo) ? catalogo : (window.CUPS||[]);
+  const valores = new Set(lista.map(catTexto));
   const agregar = ()=>{
     const v=(input.value||'').trim(); if(!v) return;
     const actual=(destino.value||'').trim();
@@ -590,9 +591,10 @@ function cupsWire(input, destino){
 function inicializarCatalogos(){
   try{
     llenarDatalist('cie10DL', window.CIE10);
-    llenarDatalist('cupsDL', window.CUPS);
+    llenarDatalist('cupsAyudaDL', window.CUPS_AYUDA);
+    llenarDatalist('cupsOrdenesDL', window.CUPS_ORDENES);
     const pb=$('hcParaBuscar'); const para=$('hcPara');
-    if(pb && para && pb.dataset.listo!=='1'){ cupsWire(pb, para); pb.dataset.listo='1'; }
+    if(pb && para && pb.dataset.listo!=='1'){ cupsWire(pb, para, window.CUPS_AYUDA); pb.dataset.listo='1'; }
   }catch(_){}
 }
 
@@ -618,9 +620,9 @@ function hcOrdenMakeBlock(valor){
   quitar.addEventListener('click', ()=>{ item.remove(); hcOrdenRenum(); });
   bar.appendChild(quitar);
   const ta=document.createElement('textarea'); ta.className='hcOrden'; ta.rows=2; ta.placeholder='Oxigenoterapia\nCuración diaria'; ta.value=valor||'';
-  const busca=document.createElement('input'); busca.type='text'; busca.className='hcOrdenCups'; busca.setAttribute('list','cupsDL'); busca.setAttribute('autocomplete','off'); busca.placeholder='Buscar por CUPS (código o nombre) y se agrega abajo...';
+  const busca=document.createElement('input'); busca.type='text'; busca.className='hcOrdenCups'; busca.setAttribute('list','cupsOrdenesDL'); busca.setAttribute('autocomplete','off'); busca.placeholder='Buscar cita especializada o procedimiento por CUPS (código o nombre)...';
   busca.style.marginBottom='6px';
-  cupsWire(busca, ta);
+  cupsWire(busca, ta, window.CUPS_ORDENES);
   item.appendChild(bar); item.appendChild(busca); item.appendChild(ta); wrap.appendChild(item);
 }
 function hcOrdenesRender(lista){
@@ -1066,13 +1068,25 @@ function generarHistoria(note){
   const g=construirDoc(note, 'Historia clínica – Consulta domiciliaria', (ctx)=> cuerpoHistoria(ctx, hc));
   g.d.save(nombreArchivo('historia_clinica', note, g.nombre));
 }
-/* genera un documento aparte (paraclínicos / orden / fórmula) */
+/* lista de diagnósticos (código CIE-10 sin puntos + manejo) para anexar a los documentos aparte */
+function dxDeHc(hc){
+  hc=hc||{};
+  const out=[];
+  if((hc.hcDxPrincipal||'').trim())   out.push('Principal: '+hc.hcDxPrincipal.trim());
+  if((hc.hcDxRelacionado||'').trim()) out.push('Relacionado: '+hc.hcDxRelacionado.trim());
+  (hc.hcDx||'').split(/\n+/).map(s=>s.trim()).filter(Boolean).forEach(d=> out.push('De manejo: '+d));
+  return out;
+}
+/* genera un documento aparte (ayuda diagnóstica / orden / fórmula) */
 function generarExtra(note, titulo, contenido, prefijo){
+  const hc=note.hc||{};
   const g=construirDoc(note, titulo, (ctx)=>{
     ctx.band(titulo);
     const lineas=(contenido||'').split(/\n+/).map(s=>s.trim()).filter(Boolean);
     if(lineas.length>1) lineas.forEach((ln,i)=> ctx.campo('', (i+1)+'. '+ln));
     else ctx.campo('', contenido);
+    const dxs=dxDeHc(hc);
+    if(dxs.length){ ctx.band('Diagnóstico'); dxs.forEach(d=> ctx.campo('', d)); }
   });
   g.d.save(nombreArchivo(prefijo, note, g.nombre));
 }
@@ -1088,7 +1102,7 @@ function ordenesDeHc(hc){
 function extrasDeNota(hc){
   hc=hc||{};
   const out=[];
-  if((hc.hcPara||'').trim())    out.push({titulo:'Paraclínicos',  prefijo:'paraclinicos',   contenido:hc.hcPara});
+  if((hc.hcPara||'').trim())    out.push({titulo:'Ayuda diagnóstica',  prefijo:'ayuda_diagnostica',   contenido:hc.hcPara});
   if((hc.hcFormula||'').trim()) out.push({titulo:'Fórmula médica',prefijo:'formula_medica', contenido:hc.hcFormula});
   const ordenes=ordenesDeHc(hc); const varias=ordenes.length>1;
   ordenes.forEach((txt,i)=>{
@@ -1155,6 +1169,8 @@ function hcPreview(id){
   extrasDeNota(hc).forEach(e=>{
     docs.appendChild(prevTarjeta(e.titulo+'  (documento aparte)', nombre, n, (card)=>{
       prevSeccion(card,'', e.contenido);
+      const dxs=dxDeHc(hc);
+      if(dxs.length) prevSeccion(card,'Diagnóstico', dxs.join('   ·   '));
     }));
   });
 

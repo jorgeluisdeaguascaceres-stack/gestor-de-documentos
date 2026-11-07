@@ -129,7 +129,7 @@
   <section id="registro" class="view">
     <div class="viewhead">
       <button class="back" data-view="home" type="button">← Inicio</button>
-      <h2>Registro Médico <span style="background:#16a34a;color:#fff;font-size:12px;padding:2px 8px;border-radius:10px;vertical-align:middle">HC EXIGENTE v1.0</span></h2>
+      <h2>Registro Médico <span style="background:#16a34a;color:#fff;font-size:12px;padding:2px 8px;border-radius:10px;vertical-align:middle">HC EXIGENTE v1.1</span></h2>
       <span class="crumb">Módulo &middot; Núcleo clínico</span>
     </div>
 
@@ -490,8 +490,8 @@
           <h4 class="sechc">Ayuda diagnóstica <span class="hcsep">· documento aparte</span></h4>
           <div class="grid">
             <div class="wide"><label>Buscar por CUPS (código o nombre)</label>
-              <input id="hcParaBuscar" list="cupsDL" autocomplete="off" placeholder="Ej. 902210 Hemograma... o escriba el código CUPS">
-              <span class="hint">Elija del listado <b>CUPS</b> y se agrega abajo automáticamente, o escríbalo a mano.</span></div>
+              <input id="hcParaBuscar" list="cupsAyudaDL" autocomplete="off" placeholder="Ej. 902210 Hemograma, radiografía, ecografía... o escriba el código CUPS">
+              <span class="hint">Solo <b>laboratorios, radiografías, ecografías y demás exámenes</b>. Elija del listado y se agrega abajo, o escríbalo a mano.</span></div>
             <div class="wide"><label>Ayudas diagnósticas solicitadas (una por línea)</label><textarea id="hcPara" rows="3" placeholder="Hemograma&#10;Uroanálisis"></textarea></div>
           </div>
           <h4 class="sechc">Fórmula médica <span class="hcsep">· documento aparte</span></h4>
@@ -505,7 +505,8 @@
           </div>
         </div>
         <datalist id="cie10DL"></datalist>
-        <datalist id="cupsDL"></datalist>
+        <datalist id="cupsAyudaDL"></datalist>
+        <datalist id="cupsOrdenesDL"></datalist>
 
         <div class="actions"><button class="btn" id="notaGuardar" type="submit">Guardar nota</button><button class="btn ghost" id="notaCancel" type="button">Cancelar</button><span class="msg" id="ntMsg"></span></div>
       </form>
