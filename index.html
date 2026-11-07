@@ -106,7 +106,7 @@
           <div><label>Régimen</label><select id="admReg"><option>Contributivo</option><option>Subsidiado</option><option>Particular</option><option>Especial</option></select></div>
           <div><label>Tipo de ingreso</label><select id="admIng"><option>Urgencias</option><option>Consulta domiciliaria</option><option>Hospitalización</option><option>Procedimiento</option></select></div>
           <div><label>Fecha y hora de ingreso</label><input id="admFecha" class="dtpick" type="text" readonly autocomplete="off" placeholder="año-mes-día hora:min"></div>
-          <div><label>Diagnóstico de ingreso (CIE-10)</label><input id="admDx" placeholder="Ej. J00 - Rinofaringitis"></div>
+          <div><label>Diagnóstico de ingreso (CIE-10)</label><input id="admDx" list="cie10DL" autocomplete="off" placeholder="Ej. J00 - Rinofaringitis"></div>
           <div><label>Médico / profesional</label><input id="admMed" placeholder="Dr(a). ..."></div>
           <div class="wide"><label>Observaciones</label><textarea id="admObs" rows="3"></textarea></div>
         </div>
@@ -129,7 +129,7 @@
   <section id="registro" class="view">
     <div class="viewhead">
       <button class="back" data-view="home" type="button">← Inicio</button>
-      <h2>Registro Médico</h2>
+      <h2>Registro Médico <span style="background:#16a34a;color:#fff;font-size:12px;padding:2px 8px;border-radius:10px;vertical-align:middle">HC EXIGENTE v1.0</span></h2>
       <span class="crumb">Módulo &middot; Núcleo clínico</span>
     </div>
 
@@ -473,15 +473,26 @@
           </div>
           <h4 class="sechc">Diagnóstico</h4>
           <div class="grid">
-            <div class="wide"><label>Diagnósticos (uno por línea)</label><textarea id="hcDx" rows="3" placeholder="Dx 1&#10;Dx 2"></textarea></div>
+            <div class="wide"><label class="req">Diagnóstico principal (CIE-10)</label>
+              <input id="hcDxPrincipal" list="cie10DL" autocomplete="off" placeholder="Escriba el código o el nombre: J00 o Rinofaringitis...">
+              <span class="hint">Obligatorio. Busque por <b>código</b> o por <b>nombre</b> y elija de la lista CIE-10.</span></div>
+            <div class="wide"><label>Diagnóstico relacionado (CIE-10)</label>
+              <input id="hcDxRelacionado" list="cie10DL" autocomplete="off" placeholder="Opcional: otro diagnóstico CIE-10 (código o nombre)">
+              <span class="hint">Opcional. También se busca por código o nombre.</span></div>
+            <div class="wide"><label>Diagnóstico de manejo</label>
+              <textarea id="hcDx" rows="3" placeholder="El médico lo escribe libremente (uno por línea)"></textarea>
+              <span class="hint">De texto libre: el médico escribe lo que corresponda.</span></div>
           </div>
           <h4 class="sechc">Plan</h4>
           <div class="grid">
-            <div class="wide"><label>Plan de manejo</label><textarea id="hcPlan" rows="3"></textarea></div>
+            <div class="wide"><label class="req">Plan de manejo</label><textarea id="hcPlan" rows="3"></textarea></div>
           </div>
-          <h4 class="sechc">Paraclínicos <span class="hcsep">· documento aparte</span></h4>
+          <h4 class="sechc">Ayuda diagnóstica <span class="hcsep">· documento aparte</span></h4>
           <div class="grid">
-            <div class="wide"><label>Paraclínicos solicitados (uno por línea)</label><textarea id="hcPara" rows="2" placeholder="Hemograma&#10;Uroanálisis"></textarea></div>
+            <div class="wide"><label>Buscar por CUPS (código o nombre)</label>
+              <input id="hcParaBuscar" list="cupsDL" autocomplete="off" placeholder="Ej. 902210 Hemograma... o escriba el código CUPS">
+              <span class="hint">Elija del listado <b>CUPS</b> y se agrega abajo automáticamente, o escríbalo a mano.</span></div>
+            <div class="wide"><label>Ayudas diagnósticas solicitadas (una por línea)</label><textarea id="hcPara" rows="3" placeholder="Hemograma&#10;Uroanálisis"></textarea></div>
           </div>
           <h4 class="sechc">Fórmula médica <span class="hcsep">· documento aparte</span></h4>
           <div class="grid">
@@ -493,6 +504,8 @@
             <div class="wide" id="hcOrdenesWrap"></div>
           </div>
         </div>
+        <datalist id="cie10DL"></datalist>
+        <datalist id="cupsDL"></datalist>
 
         <div class="actions"><button class="btn" id="notaGuardar" type="submit">Guardar nota</button><button class="btn ghost" id="notaCancel" type="button">Cancelar</button><span class="msg" id="ntMsg"></span></div>
       </form>
@@ -624,6 +637,7 @@
   </div>
 </div>
 <script src="jspdf.umd.min.js"></script>
+<script src="catalogos.js"></script>
 <script src="app.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="nube.js"></script>

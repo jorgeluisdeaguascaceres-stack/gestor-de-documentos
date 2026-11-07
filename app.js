@@ -495,7 +495,7 @@ function renderReg(){
 /* campos del formulario estructurado de Historia Clínica */
 const HC_FIELDS = ['hcMotivo','hcEnf','hcTA','hcFC','hcFR','hcT','hcSat','hcPeso','hcTalla','hcIMC',
   'hcDxNut','hcAntPer','hcAntFam','hcAlerg','hcQuir','hcGineco','hcExGen','hcExCab','hcExTorax',
-  'hcExAbd','hcExGen2','hcExExt','hcExSNC','hcExPiel','hcDx','hcPlan','hcPara','hcFormula'];
+  'hcExAbd','hcExGen2','hcExExt','hcExSNC','hcExPiel','hcDxPrincipal','hcDxRelacionado','hcDx','hcPlan','hcPara','hcFormula'];
 /* textos "normal" predeterminados del examen físico */
 const HC_NORMALES = {
   hcExGen:'Paciente en buen estado general, consciente, orientado en las tres esferas, hidratado, afebril, con adecuada perfusión.',
@@ -531,8 +531,70 @@ function hcFill(hc){
             : ((hc.hcOrdenes!=null && hc.hcOrdenes!=='') ? [hc.hcOrdenes] : []);
   hcOrdenesRender(lista.length?lista:['']);
 }
-function hcClear(){ HC_FIELDS.forEach(id=>{ const el=$(id); if(el) el.value=''; }); hcOrdenesRender(['']); }
+function hcClear(){ HC_FIELDS.forEach(id=>{ const el=$(id); if(el){ el.value=''; el.classList.remove('bad'); } }); const pb=$('hcParaBuscar'); if(pb) pb.value=''; hcOrdenesRender(['']); }
 function hcCollect(){ const o={}; HC_FIELDS.forEach(id=>{ const el=$(id); o[id]=el?(el.value||'').trim():''; }); o.hcOrdenesLista=hcOrdenesCollect(); return o; }
+
+/* Validación EXIGENTE de la Historia Clínica: no deja guardar si falta alguno
+   de los campos obligatorios. Devuelve {id,label} del PRIMER campo vacío
+   (en orden de arriba hacia abajo) o null si todo está completo. */
+function hcValidarObligatorios(hc){
+  hc=hc||{};
+  const vacio = (id)=> !((hc[id]||'').trim());
+  const req = [
+    ['hcMotivo','Motivo de la consulta'],
+    ['hcEnf','Enfermedad actual'],
+    ['hcTA','Signos vitales – TA (tensión arterial)'],
+    ['hcFC','Signos vitales – FC (frecuencia cardíaca)'],
+    ['hcFR','Signos vitales – FR (frecuencia respiratoria)'],
+    ['hcT','Signos vitales – Temperatura'],
+    ['hcDxNut','Revisión por sistemas'],
+    ['hcAntPer','Antecedentes personales'],
+    ['hcExGen','Examen físico – Estado general y conciencia'],
+    ['hcExCab','Examen físico – Cabeza, cara y cuello'],
+    ['hcExTorax','Examen físico – Tórax'],
+    ['hcExAbd','Examen físico – Abdomen'],
+    ['hcExExt','Examen físico – Extremidades'],
+    ['hcExSNC','Examen físico – Sistema nervioso central'],
+    ['hcExPiel','Examen físico – Piel y faneras'],
+    ['hcDxPrincipal','Diagnóstico principal (CIE-10)'],
+    ['hcPlan','Plan de manejo']
+  ];
+  for(const [id,label] of req){ if(vacio(id)) return {id, label}; }
+  return null;
+}
+
+/* ---- Catálogos CIE-10 / CUPS: llenar listas y autocompletar ---- */
+function catTexto(item){ return (item[0]||'') + ' - ' + (item[1]||''); }
+function llenarDatalist(idDL, arr){
+  const dl=$(idDL); if(!dl || !Array.isArray(arr)) return;
+  if(dl.dataset.listo==='1') return;
+  const frag=document.createDocumentFragment();
+  arr.forEach(it=>{ const o=document.createElement('option'); o.value=catTexto(it); frag.appendChild(o); });
+  dl.appendChild(frag); dl.dataset.listo='1';
+}
+/* Conecta un buscador CUPS a un textarea destino: al elegir una opción del
+   listado (o escribir y salir), agrega la línea al textarea y limpia el buscador. */
+function cupsWire(input, destino){
+  if(!input || !destino) return;
+  const valores = new Set((window.CUPS||[]).map(catTexto));
+  const agregar = ()=>{
+    const v=(input.value||'').trim(); if(!v) return;
+    const actual=(destino.value||'').trim();
+    const yaEsta = actual.split(/\n+/).map(s=>s.trim()).includes(v);
+    if(!yaEsta){ destino.value = actual ? (actual+'\n'+v) : v; }
+    input.value='';
+  };
+  input.addEventListener('change', agregar);
+  input.addEventListener('input', ()=>{ if(valores.has((input.value||'').trim())) agregar(); });
+}
+function inicializarCatalogos(){
+  try{
+    llenarDatalist('cie10DL', window.CIE10);
+    llenarDatalist('cupsDL', window.CUPS);
+    const pb=$('hcParaBuscar'); const para=$('hcPara');
+    if(pb && para && pb.dataset.listo!=='1'){ cupsWire(pb, para); pb.dataset.listo='1'; }
+  }catch(_){}
+}
 
 /* ---- Órdenes médicas: cada bloque es un soporte aparte; el botón ＋ agrega otro ---- */
 function hcOrdenesCollect(){
@@ -556,7 +618,10 @@ function hcOrdenMakeBlock(valor){
   quitar.addEventListener('click', ()=>{ item.remove(); hcOrdenRenum(); });
   bar.appendChild(quitar);
   const ta=document.createElement('textarea'); ta.className='hcOrden'; ta.rows=2; ta.placeholder='Oxigenoterapia\nCuración diaria'; ta.value=valor||'';
-  item.appendChild(bar); item.appendChild(ta); wrap.appendChild(item);
+  const busca=document.createElement('input'); busca.type='text'; busca.className='hcOrdenCups'; busca.setAttribute('list','cupsDL'); busca.setAttribute('autocomplete','off'); busca.placeholder='Buscar por CUPS (código o nombre) y se agrega abajo...';
+  busca.style.marginBottom='6px';
+  cupsWire(busca, ta);
+  item.appendChild(bar); item.appendChild(busca); item.appendChild(ta); wrap.appendChild(item);
 }
 function hcOrdenesRender(lista){
   const wrap=$('hcOrdenesWrap'); if(!wrap) return;
@@ -574,7 +639,9 @@ function hcCalcIMC(){
 /* resumen de texto para la lista (vista de tabla) a partir de la HC */
 function hcResumen(hc){
   hc=hc||{};
-  const dx=(hc.hcDx||'').split(/\n+/).filter(Boolean).join('; ');
+  const dxLista=[hc.hcDxPrincipal, hc.hcDxRelacionado].filter(x=>(x||'').trim())
+    .concat((hc.hcDx||'').split(/\n+/).filter(Boolean));
+  const dx=dxLista.join('; ');
   return [hc.hcMotivo?('Motivo: '+hc.hcMotivo):'', dx?('Dx: '+dx):''].filter(Boolean).join('  |  ') || '(historia clínica)';
 }
 (function(){
@@ -586,6 +653,7 @@ function abrirNota(id, ro){
   soloLectura = !!ro;
   flash($('ntMsg'),'');
   hcClear();
+  inicializarCatalogos();
   if(editNotaId){
     const n=store.get('notas',[]).find(x=>x.id===editNotaId); if(!n){ return; }
     $('notaTit').textContent=(soloLectura?'Ver ':'Editar ')+(n.tipo||'nota').toLowerCase();
@@ -633,7 +701,15 @@ $('formNota').addEventListener('submit', (e)=>{
   let texto, hc=null;
   if(esHC(tipo)){
     hc=hcCollect();
-    if(!hc.hcMotivo && !hc.hcEnf){ flash($('ntMsg'),'Escriba al menos el motivo o la enfermedad actual.','err'); return; }
+    const falta=hcValidarObligatorios(hc);
+    if(falta){
+      HC_FIELDS.forEach(id=>{ const el=$(id); if(el) el.classList.remove('bad'); });
+      const el=$(falta.id);
+      if(el){ el.classList.add('bad'); try{ el.scrollIntoView({behavior:'smooth',block:'center'}); el.focus({preventScroll:true}); }catch(_){ try{ el.focus(); }catch(e){} } }
+      flash($('ntMsg'),'Falta diligenciar: '+falta.label+'. La historia no se puede guardar incompleta.','err');
+      return;
+    }
+    HC_FIELDS.forEach(id=>{ const el=$(id); if(el) el.classList.remove('bad'); });
     texto=hcResumen(hc);
   } else {
     texto=$('ntTexto').value.trim();
@@ -972,8 +1048,10 @@ function cuerpoHistoria(ctx, hc){
   ctx.campo('Sistema nervioso central', hc.hcExSNC);
   ctx.campo('Piel y faneras', hc.hcExPiel);
   ctx.band('Diagnóstico');
+  ctx.campo('Diagnóstico principal (CIE-10)', hc.hcDxPrincipal || '—');
+  if((hc.hcDxRelacionado||'').trim()) ctx.campo('Diagnóstico relacionado (CIE-10)', hc.hcDxRelacionado);
   const dxs=(hc.hcDx||'').split(/\n+/).filter(Boolean);
-  if(dxs.length) dxs.forEach((dx,i)=> ctx.campo('', (i+1)+'. '+dx)); else ctx.campo('', '—');
+  if(dxs.length){ ctx.campo('Diagnóstico de manejo', ''); dxs.forEach((dx,i)=> ctx.campo('', (i+1)+'. '+dx)); }
   ctx.band('Plan'); ctx.campo('', hc.hcPlan);
 }
 
@@ -1720,6 +1798,7 @@ function init(){
   const now = new Date(); now.setMinutes(now.getMinutes()-now.getTimezoneOffset());
   if($('admFecha')) $('admFecha').value = now.toISOString().slice(0,16);
   repararPerms();
+  inicializarCatalogos();
   const u = sesionUser();
   if(u){ entrar(u); } else { mostrarGate(); }
 }
